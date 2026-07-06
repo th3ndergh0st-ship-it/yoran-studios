@@ -131,6 +131,11 @@ class Utility(commands.Cog):
                 ephemeral=True,
             )
 
+    info = app_commands.Group(name="info", description="Look up info about members, roles, and this server")
+    community = app_commands.Group(name="community", description="Community commands")
+
+    # ── Top-level utility ────────────────────────────────────────────────────────
+
     @app_commands.command(name="testcommit", description="Debug: check if the latest code is deployed and what roles you have")
     async def testcommit(self, interaction: discord.Interaction):
         member = interaction.user
@@ -181,9 +186,51 @@ class Utility(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="avatar", description="View a member's avatar")
+    # ── /info group ──────────────────────────────────────────────────────────────
+
+    @info.command(name="user", description="View info about a member")
+    @app_commands.describe(member="Member to look up")
+    @is_helper()
+    async def info_user(self, interaction: discord.Interaction, member: discord.Member = None):
+        target = member or interaction.user
+        roles = [r.mention for r in reversed(target.roles[1:])]
+        embed = discord.Embed(color=target.color if str(target.color) != "#000000" else PRIMARY)
+        embed.set_author(name=str(target), icon_url=target.display_avatar.url)
+        embed.set_thumbnail(url=target.display_avatar.url)
+        embed.add_field(name="🏷️  Username", value=str(target), inline=True)
+        embed.add_field(name="🆔  ID", value=f"`{target.id}`", inline=True)
+        embed.add_field(name="🤖  Bot", value="Yes" if target.bot else "No", inline=True)
+        embed.add_field(name="📅  Account Created", value=discord.utils.format_dt(target.created_at, "R"), inline=True)
+        embed.add_field(name="📥  Joined Server", value=discord.utils.format_dt(target.joined_at, "R"), inline=True)
+        embed.add_field(name="⭐  Top Role", value=target.top_role.mention, inline=True)
+        embed.add_field(name=f"🎭  Roles ({len(roles)})", value=" ".join(roles)[:1024] if roles else "None", inline=False)
+        embed.set_footer(text=f"Requested by {interaction.user}", icon_url=interaction.user.display_avatar.url)
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+
+    @info.command(name="server", description="View info about this server")
+    @is_helper()
+    async def info_server(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        embed = discord.Embed(title=f"🏠  {guild.name}", color=PRIMARY)
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+        if guild.banner:
+            embed.set_image(url=guild.banner.url)
+        embed.add_field(name="👑  Owner", value=guild.owner.mention if guild.owner else "Unknown", inline=True)
+        embed.add_field(name="👥  Members", value=f"`{guild.member_count}`", inline=True)
+        embed.add_field(name="🎭  Roles", value=f"`{len(guild.roles)}`", inline=True)
+        embed.add_field(name="💬  Text Channels", value=f"`{len(guild.text_channels)}`", inline=True)
+        embed.add_field(name="🔊  Voice Channels", value=f"`{len(guild.voice_channels)}`", inline=True)
+        embed.add_field(name="✨  Boost Level", value=f"`Tier {guild.premium_tier}` ({guild.premium_subscription_count} boosts)", inline=True)
+        embed.add_field(name="📅  Created", value=discord.utils.format_dt(guild.created_at, "R"), inline=False)
+        embed.set_footer(text=f"ID: {guild.id}", icon_url=self.bot.user.display_avatar.url)
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+
+    @info.command(name="avatar", description="View a member's avatar")
     @app_commands.describe(member="Member to get the avatar of")
-    async def avatar(self, interaction: discord.Interaction, member: discord.Member = None):
+    async def info_avatar(self, interaction: discord.Interaction, member: discord.Member = None):
         target = member or interaction.user
         embed = discord.Embed(title=f"🖼️  {target.display_name}'s Avatar", color=PRIMARY)
         embed.set_image(url=target.display_avatar.url)
@@ -192,8 +239,8 @@ class Utility(commands.Cog):
         view.add_item(discord.ui.Button(label="Download", url=str(target.display_avatar.url), style=discord.ButtonStyle.link, emoji="⬇️"))
         await interaction.response.send_message(embed=embed, view=view)
 
-    @app_commands.command(name="membercount", description="View the server's member count")
-    async def membercount(self, interaction: discord.Interaction):
+    @info.command(name="membercount", description="View the server's member count")
+    async def info_membercount(self, interaction: discord.Interaction):
         guild = interaction.guild
         bots   = sum(1 for m in guild.members if m.bot)
         humans = guild.member_count - bots
@@ -207,10 +254,10 @@ class Utility(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="roleinfo", description="View info about a role")
+    @info.command(name="role", description="View info about a role")
     @app_commands.describe(role="Role to look up")
     @is_helper()
-    async def roleinfo(self, interaction: discord.Interaction, role: discord.Role):
+    async def info_role(self, interaction: discord.Interaction, role: discord.Role):
         perms = [p.replace("_", " ").title() for p, v in role.permissions if v]
         embed = discord.Embed(title=f"🎭  {role.name}", color=role.color if role.color.value else PRIMARY)
         embed.add_field(name="🆔  ID", value=f"`{role.id}`", inline=True)
@@ -228,13 +275,15 @@ class Utility(commands.Cog):
         embed.set_footer(text=f"Created {discord.utils.format_dt(role.created_at, 'R')}")
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="suggest", description="Submit a suggestion for the server")
-    async def suggest(self, interaction: discord.Interaction):
+    # ── /community group ─────────────────────────────────────────────────────────
+
+    @community.command(name="suggest", description="Submit a suggestion for the server")
+    async def community_suggest(self, interaction: discord.Interaction):
         await interaction.response.send_modal(SuggestModal())
 
-    @app_commands.command(name="report", description="Report a user to staff")
+    @community.command(name="report", description="Report a user to staff")
     @app_commands.describe(member="Member you want to report")
-    async def report(self, interaction: discord.Interaction, member: discord.Member):
+    async def community_report(self, interaction: discord.Interaction, member: discord.Member):
         if member == interaction.user:
             return await interaction.response.send_message(
                 embed=discord.Embed(description="❌ You cannot report yourself.", color=ERROR),
@@ -242,11 +291,13 @@ class Utility(commands.Cog):
             )
         await interaction.response.send_modal(ReportModal(member))
 
-    @app_commands.command(name="poll", description="Create a poll in a channel")
+    @community.command(name="poll", description="Create a poll in a channel")
     @app_commands.describe(channel="Channel to post the poll in")
     @is_support()
-    async def poll(self, interaction: discord.Interaction, channel: discord.TextChannel):
+    async def community_poll(self, interaction: discord.Interaction, channel: discord.TextChannel):
         await interaction.response.send_modal(PollModal(channel))
+
+    # ── Help ─────────────────────────────────────────────────────────────────────
 
     @app_commands.command(name="help", description="View all available commands")
     async def help(self, interaction: discord.Interaction):
@@ -257,44 +308,47 @@ class Utility(commands.Cog):
         )
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         embed.add_field(
-            name="🔨  Moderation",
-            value="`/ban` `/kick` `/unban` `/timeout` `/untimeout`\n"
-                  "`/warn` `/warnings` `/clearwarnings`\n"
-                  "`/purge` `/slowmode` `/lock` `/unlock`\n"
-                  "`/role` `/nick`",
+            name="🔨  /mod",
+            value="`ban` `kick` `unban` `timeout` `untimeout`\n"
+                  "`warn` `warnings` `clearwarnings`\n"
+                  "`purge` `slowmode` `lock` `unlock`\n"
+                  "`role` `nick`",
             inline=False,
         )
         embed.add_field(
-            name="🔍  Info",
-            value="`/userinfo` `/serverinfo` `/avatar` `/membercount` `/roleinfo`",
+            name="🔍  /info",
+            value="`user` `server` `avatar` `membercount` `role`",
             inline=False,
         )
         embed.add_field(
-            name="📢  Announcements  *(Admin)*",
-            value="`/announce` `/embed`",
+            name="📢  /announce  *(Admin)*",
+            value="`send` `embed`",
             inline=False,
         )
         embed.add_field(
-            name="🎮  Games",
-            value="`/games` `/gameinfo` `/notify`\n"
+            name="🎮  /game  +  /gamepanel",
+            value="`/game list` `/game info` `/game notify`\n"
                   "`/gamepanel`  *(Owner only)*",
             inline=False,
         )
         embed.add_field(
-            name="🪙  Economy",
-            value="`/balance` `/daily` `/work` `/pay` `/leaderboard`\n"
-                  "`/shop view` `/shop buy`\n"
-                  "`/shop additem` `/shop removeitem`  *(Admin)*",
+            name="🪙  /economy",
+            value="`balance` `daily` `work` `crime` `beg` `rob`\n"
+                  "`pay` `deposit` `withdraw` `leaderboard`\n"
+                  "`coinflip` `slots` `jobs` `setjob`\n"
+                  "`shop view` `shop buy`\n"
+                  "`shop additem` `shop removeitem`  *(Admin)*",
             inline=False,
         )
         embed.add_field(
-            name="🧠  Learn",
-            value="`/tip` `/trivia`",
+            name="🧠  /learn",
+            value="`tip` `trivia`",
             inline=False,
         )
         embed.add_field(
-            name="💬  Community",
-            value="`/suggest` `/report` `/poll` `/giveaway start`",
+            name="💬  /community  +  /giveaway",
+            value="`/community suggest` `/community report` `/community poll`\n"
+                  "`/giveaway start` `/giveaway end` `/giveaway reroll`",
             inline=False,
         )
         embed.add_field(

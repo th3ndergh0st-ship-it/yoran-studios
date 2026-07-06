@@ -127,14 +127,16 @@ class Education(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="tip", description="Get a random Roblox development tip")
+    learn = app_commands.Group(name="learn", description="Dev tips and trivia")
+
+    @learn.command(name="tip", description="Get a random Roblox development tip")
     async def tip(self, interaction: discord.Interaction):
         text = random.choice(TIPS)
         embed = discord.Embed(title="💡  Dev Tip", description=text, color=INFO)
         embed.set_footer(text="Yoran Studios  •  Dev Tips")
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="trivia", description="Answer a Roblox/Lua trivia question for coins")
+    @learn.command(name="trivia", description="Answer a Roblox/Lua trivia question for coins")
     async def trivia(self, interaction: discord.Interaction):
         question = random.choice(TRIVIA)
         embed = discord.Embed(title="🧠  Trivia Time!", description=question["question"], color=PRIMARY)

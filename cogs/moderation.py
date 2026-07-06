@@ -208,19 +208,21 @@ class Moderation(commands.Cog):
                 ephemeral=True,
             )
 
-    @app_commands.command(name="ban", description="Ban a member from the server")
+    mod = app_commands.Group(name="mod", description="Moderation commands")
+
+    @mod.command(name="ban", description="Ban a member from the server")
     @app_commands.describe(member="Member to ban")
     @is_mod()
     async def ban(self, interaction: discord.Interaction, member: discord.Member):
         await interaction.response.send_modal(BanModal(self.bot, member))
 
-    @app_commands.command(name="kick", description="Kick a member from the server")
+    @mod.command(name="kick", description="Kick a member from the server")
     @app_commands.describe(member="Member to kick")
     @is_mod()
     async def kick(self, interaction: discord.Interaction, member: discord.Member):
         await interaction.response.send_modal(KickModal(self.bot, member))
 
-    @app_commands.command(name="unban", description="Unban a user by their ID")
+    @mod.command(name="unban", description="Unban a user by their ID")
     @app_commands.describe(user_id="Discord user ID to unban", reason="Reason for unbanning")
     @is_mod()
     async def unban(self, interaction: discord.Interaction, user_id: str, reason: str = "No reason provided"):
@@ -240,13 +242,13 @@ class Moderation(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="timeout", description="Timeout a member")
+    @mod.command(name="timeout", description="Timeout a member")
     @app_commands.describe(member="Member to timeout")
     @is_support()
     async def timeout(self, interaction: discord.Interaction, member: discord.Member):
         await interaction.response.send_modal(TimeoutModal(self.bot, member))
 
-    @app_commands.command(name="untimeout", description="Remove timeout from a member")
+    @mod.command(name="untimeout", description="Remove timeout from a member")
     @app_commands.describe(member="Member to untimeout")
     @is_support()
     async def untimeout(self, interaction: discord.Interaction, member: discord.Member):
@@ -264,13 +266,13 @@ class Moderation(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="warn", description="Warn a member")
+    @mod.command(name="warn", description="Warn a member")
     @app_commands.describe(member="Member to warn")
     @is_support()
     async def warn(self, interaction: discord.Interaction, member: discord.Member):
         await interaction.response.send_modal(WarnModal(self.bot, member))
 
-    @app_commands.command(name="warnings", description="View warnings for a member")
+    @mod.command(name="warnings", description="View warnings for a member")
     @app_commands.describe(member="Member to check")
     @is_helper()
     async def warnings(self, interaction: discord.Interaction, member: discord.Member):
@@ -294,7 +296,7 @@ class Moderation(commands.Cog):
         embed.set_footer(text=f"Total: {len(warns)} warning(s)  •  Yoran Moderation")
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="clearwarnings", description="Clear all warnings for a member")
+    @mod.command(name="clearwarnings", description="Clear all warnings for a member")
     @app_commands.describe(member="Member to clear warnings for")
     @is_mod()
     async def clearwarnings(self, interaction: discord.Interaction, member: discord.Member):
@@ -311,7 +313,7 @@ class Moderation(commands.Cog):
         embed.set_footer(**_footer(self.bot))
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="purge", description="Delete messages in this channel")
+    @mod.command(name="purge", description="Delete messages in this channel")
     @app_commands.describe(amount="Number of messages to delete (1–100)", member="Only delete messages from this member")
     @is_support()
     async def purge(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1, 100], member: discord.Member = None):
@@ -330,7 +332,7 @@ class Moderation(commands.Cog):
         embed.set_footer(**_footer(self.bot))
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="slowmode", description="Set slowmode for this channel")
+    @mod.command(name="slowmode", description="Set slowmode for this channel")
     @app_commands.describe(seconds="Seconds between messages — 0 to disable")
     @is_support()
     async def slowmode(self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 21600]):
@@ -344,7 +346,7 @@ class Moderation(commands.Cog):
         embed.set_footer(**_footer(self.bot))
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="lock", description="Lock a channel so members can't send messages")
+    @mod.command(name="lock", description="Lock a channel so members can't send messages")
     @app_commands.describe(channel="Channel to lock (defaults to current)", reason="Reason for locking")
     @is_mod()
     async def lock(self, interaction: discord.Interaction, channel: discord.TextChannel = None, reason: str = "No reason provided"):
@@ -361,7 +363,7 @@ class Moderation(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="unlock", description="Unlock a channel")
+    @mod.command(name="unlock", description="Unlock a channel")
     @app_commands.describe(channel="Channel to unlock (defaults to current)", reason="Reason for unlocking")
     @is_mod()
     async def unlock(self, interaction: discord.Interaction, channel: discord.TextChannel = None, reason: str = "No reason provided"):
@@ -378,7 +380,7 @@ class Moderation(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="nick", description="Change a member's nickname")
+    @mod.command(name="nick", description="Change a member's nickname")
     @app_commands.describe(member="Member to nickname", nickname="New nickname — leave empty to reset")
     @is_support()
     async def nick(self, interaction: discord.Interaction, member: discord.Member, nickname: str = None):
@@ -391,7 +393,7 @@ class Moderation(commands.Cog):
         embed.set_footer(**_footer(self.bot))
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="role", description="Add or remove a role from a member")
+    @mod.command(name="role", description="Add or remove a role from a member")
     @app_commands.describe(member="Target member", role="Role to add or remove")
     @is_admin()
     async def role(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role):
@@ -412,46 +414,6 @@ class Moderation(commands.Cog):
             color=color,
         )
         embed.set_footer(**_footer(self.bot))
-        await interaction.response.send_message(embed=embed)
-
-    @app_commands.command(name="userinfo", description="View info about a member")
-    @app_commands.describe(member="Member to look up")
-    @is_helper()
-    async def userinfo(self, interaction: discord.Interaction, member: discord.Member = None):
-        target = member or interaction.user
-        roles = [r.mention for r in reversed(target.roles[1:])]
-        embed = discord.Embed(color=target.color if str(target.color) != "#000000" else PRIMARY)
-        embed.set_author(name=str(target), icon_url=target.display_avatar.url)
-        embed.set_thumbnail(url=target.display_avatar.url)
-        embed.add_field(name="🏷️  Username", value=str(target), inline=True)
-        embed.add_field(name="🆔  ID", value=f"`{target.id}`", inline=True)
-        embed.add_field(name="🤖  Bot", value="Yes" if target.bot else "No", inline=True)
-        embed.add_field(name="📅  Account Created", value=discord.utils.format_dt(target.created_at, "R"), inline=True)
-        embed.add_field(name="📥  Joined Server", value=discord.utils.format_dt(target.joined_at, "R"), inline=True)
-        embed.add_field(name="⭐  Top Role", value=target.top_role.mention, inline=True)
-        embed.add_field(name=f"🎭  Roles ({len(roles)})", value=" ".join(roles)[:1024] if roles else "None", inline=False)
-        embed.set_footer(text=f"Requested by {interaction.user}", icon_url=interaction.user.display_avatar.url)
-        embed.timestamp = discord.utils.utcnow()
-        await interaction.response.send_message(embed=embed)
-
-    @app_commands.command(name="serverinfo", description="View info about this server")
-    @is_helper()
-    async def serverinfo(self, interaction: discord.Interaction):
-        guild = interaction.guild
-        embed = discord.Embed(title=f"🏠  {guild.name}", color=PRIMARY)
-        if guild.icon:
-            embed.set_thumbnail(url=guild.icon.url)
-        if guild.banner:
-            embed.set_image(url=guild.banner.url)
-        embed.add_field(name="👑  Owner", value=guild.owner.mention if guild.owner else "Unknown", inline=True)
-        embed.add_field(name="👥  Members", value=f"`{guild.member_count}`", inline=True)
-        embed.add_field(name="🎭  Roles", value=f"`{len(guild.roles)}`", inline=True)
-        embed.add_field(name="💬  Text Channels", value=f"`{len(guild.text_channels)}`", inline=True)
-        embed.add_field(name="🔊  Voice Channels", value=f"`{len(guild.voice_channels)}`", inline=True)
-        embed.add_field(name="✨  Boost Level", value=f"`Tier {guild.premium_tier}` ({guild.premium_subscription_count} boosts)", inline=True)
-        embed.add_field(name="📅  Created", value=discord.utils.format_dt(guild.created_at, "R"), inline=False)
-        embed.set_footer(text=f"ID: {guild.id}", icon_url=self.bot.user.display_avatar.url)
-        embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
 
