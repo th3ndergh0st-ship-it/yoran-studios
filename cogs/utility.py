@@ -143,7 +143,7 @@ class Utility(commands.Cog):
 
         embed = discord.Embed(
             title="🧪  Deploy / Role Debug",
-            description="BUILD-MARKER: 2026-07-05-v2\nIf you can see this marker, the latest code IS deployed.",
+            description="BUILD-MARKER: 2026-07-05-v3-railway\nIf you can see this marker, Railway IS running the latest code.",
             color=PRIMARY,
         )
         embed.add_field(name="👑 Real server owner?", value=str(is_real_owner), inline=True)
