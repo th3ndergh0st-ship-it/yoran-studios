@@ -302,12 +302,6 @@ class Utility(commands.Cog):
             value="`/ping` `/botinfo` `/help`",
             inline=False,
         )
-        embed.add_field(
-            name="🛠️  Server Setup  *(Admin/Owner)*",
-            value="`/setup`  *(Owner only)*\n"
-                  "`/setup-verification` `/setup-tickets` `/setup-welcome` `/setup-goodbye`",
-            inline=False,
-        )
         embed.set_footer(text="Yoran  •  Yoran Studios", icon_url=self.bot.user.display_avatar.url)
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed, ephemeral=True)

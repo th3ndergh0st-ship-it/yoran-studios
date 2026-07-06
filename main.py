@@ -19,7 +19,6 @@ class Yoran(commands.Bot):
 
     async def setup_hook(self):
         extensions = [
-            "cogs.setup",
             "cogs.moderation",
             "cogs.announcements",
             "cogs.verification",
