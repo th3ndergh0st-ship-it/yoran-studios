@@ -26,10 +26,11 @@ class Yoran(commands.Bot):
             "cogs.tickets",
             "cogs.utility",
             "cogs.giveaway",
+            "cogs.setup",
             "cogs.games",
             "cogs.economy",
             "cogs.education",
-            "cogs.serverclone",
+            "cogs.roletools",
         ]
         for ext in extensions:
             await self.load_extension(ext)
