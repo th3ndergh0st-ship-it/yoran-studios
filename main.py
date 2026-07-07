@@ -1,11 +1,30 @@
 import asyncio
 import discord
+from discord import app_commands
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
 from keepalive import start_keepalive
 
 load_dotenv()
+
+# This bot is exclusive to the Yoran Studios server. Slash commands are
+# refused everywhere else — the Yoran Shop server has its own separate bot.
+STUDIOS_GUILD_ID = 1523445628204482620
+
+
+class StudiosOnlyTree(app_commands.CommandTree):
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.guild is None or interaction.guild.id == STUDIOS_GUILD_ID:
+            return True
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                description="❌ This bot is exclusive to the **Yoran Studios** server.",
+                color=0xE74C3C,
+            ),
+            ephemeral=True,
+        )
+        return False
 
 
 class Yoran(commands.Bot):
@@ -15,6 +34,7 @@ class Yoran(commands.Bot):
             command_prefix="!",
             intents=intents,
             help_command=None,
+            tree_cls=StudiosOnlyTree,
         )
 
     async def setup_hook(self):
@@ -50,6 +70,8 @@ class Yoran(commands.Bot):
         print(f"[Yoran] Online · {self.user} · {len(self.guilds)} server(s)")
 
     async def on_member_join(self, member: discord.Member):
+        if member.guild.id != STUDIOS_GUILD_ID:
+            return
         role = discord.utils.get(member.guild.roles, name="🔒 Unverified")
         if role:
             await member.add_roles(role, reason="Auto-assigned on join")
