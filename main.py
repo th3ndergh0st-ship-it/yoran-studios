@@ -54,12 +54,21 @@ class Yoran(commands.Bot):
         ]
         for ext in extensions:
             await self.load_extension(ext)
+
+        # Register commands per-guild instead of globally so they only
+        # show up inside Yoran Studios — not in any other server the bot
+        # happens to be in.
+        studios = discord.Object(STUDIOS_GUILD_ID)
+        self.tree.copy_global_to(guild=studios)
+        self.tree.clear_commands(guild=None)
+        synced = await self.tree.sync(guild=studios)
+        await self.tree.sync()  # push the now-empty global list so old global commands disappear
+        print(f"[Yoran] Synced {len(synced)} slash commands to Yoran Studios", flush=True)
+
         port = int(os.getenv("PORT", "3000"))
         start_keepalive(port=port)
 
     async def on_ready(self):
-        synced = await self.tree.sync()
-        print(f"[Yoran] Synced {len(synced)} slash commands", flush=True)
         await self.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.watching,
