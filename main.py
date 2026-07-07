@@ -50,7 +50,6 @@ class Yoran(commands.Bot):
             "cogs.games",
             "cogs.economy",
             "cogs.education",
-            "cogs.roletools",
         ]
         for ext in extensions:
             await self.load_extension(ext)
@@ -81,7 +80,7 @@ class Yoran(commands.Bot):
     async def on_member_join(self, member: discord.Member):
         if member.guild.id != STUDIOS_GUILD_ID:
             return
-        role = discord.utils.get(member.guild.roles, name="🔒 Unverified")
+        role = discord.utils.get(member.guild.roles, name="Unverified")
         if role:
             await member.add_roles(role, reason="Auto-assigned on join")
 

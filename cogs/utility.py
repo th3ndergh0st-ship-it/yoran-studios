@@ -357,9 +357,8 @@ class Utility(commands.Cog):
             inline=False,
         )
         embed.add_field(
-            name="🛠️  Server Setup  *(Admin/Owner)*",
-            value="`/setup-verification` `/setup-tickets` `/setup-welcome` `/setup-goodbye`\n"
-                  "`/setup` `/organizeroles`  *(Owner only)*",
+            name="🛠️  Server Setup  *(Admin)*",
+            value="`/setup-verification` `/setup-tickets` `/setup-welcome` `/setup-goodbye`",
             inline=False,
         )
         embed.set_footer(text="Yoran  •  Yoran Studios", icon_url=self.bot.user.display_avatar.url)

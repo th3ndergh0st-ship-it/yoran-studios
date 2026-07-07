@@ -2,15 +2,16 @@ from discord import app_commands
 import discord
 
 # Rank hierarchy (highest → lowest). Each tier below is a superset of the
-# ones above it, mirroring the actual Discord role order created by /setup.
-OWNER_ROLES   = {"👑 Owner", "💼 Co-Owner", "⚙️ Developer"}
-ADMIN_ROLES   = OWNER_ROLES | {"🛡️ Head Administrator", "🛡️ Administrator"}
-MOD_ROLES     = ADMIN_ROLES | {"🔨 Head Moderator", "🔨 Moderator"}
-SUPPORT_ROLES = MOD_ROLES | {"🔰 Trial Moderator", "🎟️ Support Team"}
-HELPER_ROLES  = SUPPORT_ROLES | {"🤝 Helper"}
+# ones above it. Names match the ACTUAL roles in the Yoran Studios server
+# (cloned structure, no emojis).
+OWNER_ROLES   = {"Owner", "Lead Developer", "Developer"}
+ADMIN_ROLES   = OWNER_ROLES | {"Community Manager", "QA Manager", "Administrator", "Highest Staff", "Administration Team"}
+MOD_ROLES     = ADMIN_ROLES | {"Trial Administrator", "Senior Moderator", "High Staff", "Moderator"}
+SUPPORT_ROLES = MOD_ROLES | {"Trial Moderator", "Moderation Team", "Staff Team"}
+HELPER_ROLES  = SUPPORT_ROLES | {"Event Host", "Trial Event Host", "Event Team"}
 
 # Non-staff badge ranks — cosmetic/perk roles, no elevated command access.
-COMMUNITY_ROLES = {"🎬 Content Creator", "🤝 Partner", "🧪 Beta Tester", "💎 Server Booster"}
+COMMUNITY_ROLES = {"Creator", "Contributor", "QA Tester", "OG Tester", "Tester team", "New Tester", "OG Member", "Giveaway Sponsor"}
 
 # Hardcoded ID for the top "owner owner" role — matched by ID instead of name
 # so it keeps working even if the role gets renamed. Bypasses every check.

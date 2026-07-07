@@ -3,6 +3,9 @@ from discord.ext import commands
 
 from config import PRIMARY, SUCCESS, ERROR
 
+MEMBER_ROLE_NAME = "Member"
+UNVERIFIED_ROLE_NAME = "Unverified"
+
 
 class VerificationView(discord.ui.View):
     def __init__(self):
@@ -12,8 +15,8 @@ class VerificationView(discord.ui.View):
     async def verify(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
         member = interaction.user
-        member_role = discord.utils.get(guild.roles, name="✅ Member")
-        unverified_role = discord.utils.get(guild.roles, name="🔒 Unverified")
+        member_role = discord.utils.get(guild.roles, name=MEMBER_ROLE_NAME)
+        unverified_role = discord.utils.get(guild.roles, name=UNVERIFIED_ROLE_NAME)
 
         if member_role and member_role in member.roles:
             return await interaction.response.send_message(
