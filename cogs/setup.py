@@ -148,14 +148,26 @@ class Setup(commands.Cog):
         await interaction.followup.send(embed=discord.Embed(description=summary, color=SUCCESS), ephemeral=True)
 
     @app_commands.command(name="setup-tickets", description="Post the support ticket panel in a channel")
-    @app_commands.describe(channel="Channel to post the ticket panel in", category="Category new ticket channels should be created under")
+    @app_commands.describe(
+        channel="Channel to post the ticket panel in",
+        category="Category new ticket channels should be created under",
+        logs_channel="Channel where ticket open/close logs will be sent (e.g. #ticket-logs)",
+    )
     @is_admin()
-    async def setup_tickets(self, interaction: discord.Interaction, channel: discord.TextChannel, category: discord.CategoryChannel = None):
+    async def setup_tickets(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        category: discord.CategoryChannel = None,
+        logs_channel: discord.TextChannel = None,
+    ):
         data = _load_tickets()
         gid = str(interaction.guild.id)
         data.setdefault(gid, {})
         if category:
             data[gid]["category_id"] = category.id
+        if logs_channel:
+            data[gid]["logs_channel_id"] = logs_channel.id
         _save_tickets(data)
 
         embed = discord.Embed(
@@ -174,8 +186,13 @@ class Setup(commands.Cog):
             embed.set_thumbnail(url=interaction.guild.icon.url)
         embed.set_footer(text=f"{interaction.guild.name}  •  Support", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
         await channel.send(embed=embed, view=TicketOpenView())
+        summary = f"✅ Ticket panel posted in {channel.mention}."
+        if category:
+            summary += f"\nTickets will be created under **{category.name}**."
+        if logs_channel:
+            summary += f"\nOpen/close logs will go to {logs_channel.mention}."
         await interaction.response.send_message(
-            embed=discord.Embed(description=f"✅ Ticket panel posted in {channel.mention}.", color=SUCCESS),
+            embed=discord.Embed(description=summary, color=SUCCESS),
             ephemeral=True,
         )
 

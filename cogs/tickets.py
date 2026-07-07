@@ -21,6 +21,12 @@ def _save(data: dict):
         json.dump(data, f, indent=2)
 
 
+def _logs_channel(guild: discord.Guild) -> discord.TextChannel | None:
+    data = _load()
+    ch_id = data.get(str(guild.id), {}).get("logs_channel_id")
+    return guild.get_channel(ch_id) if ch_id else None
+
+
 def _staff_overwrites(guild: discord.Guild, user: discord.Member) -> dict:
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(view_channel=False),
@@ -89,7 +95,7 @@ class TicketOpenModal(discord.ui.Modal, title="🎫 Open a Support Ticket"):
             title="🎫  Support Ticket",
             color=PRIMARY,
         )
-        embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+        embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="👤  Member", value=member.mention, inline=True)
         embed.add_field(name="📋  Type", value=self.ticket_type.value, inline=True)
         embed.add_field(name="📝  Description", value=self.description.value, inline=False)
@@ -106,6 +112,20 @@ class TicketOpenModal(discord.ui.Modal, title="🎫 Open a Support Ticket"):
             embed=discord.Embed(description=f"✅ Your ticket has been created: {channel.mention}", color=SUCCESS),
             ephemeral=True,
         )
+
+        logs = _logs_channel(guild)
+        if logs:
+            log_embed = discord.Embed(title="📬  Ticket Opened", color=SUCCESS)
+            log_embed.set_thumbnail(url=member.display_avatar.url)
+            log_embed.add_field(name="👤  Member", value=f"{member.mention}\n`{member.id}`", inline=True)
+            log_embed.add_field(name="📋  Type", value=self.ticket_type.value, inline=True)
+            log_embed.add_field(name="💬  Channel", value=channel.mention, inline=True)
+            log_embed.add_field(name="📝  Description", value=self.description.value[:1024], inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            try:
+                await logs.send(embed=log_embed)
+            except discord.HTTPException:
+                pass
 
 
 # ── Views ─────────────────────────────────────────────────────────────────────
@@ -151,6 +171,21 @@ class TicketControlView(discord.ui.View):
         if ch_id in data.get(gid, {}).get("open", {}):
             del data[gid]["open"][ch_id]
             _save(data)
+
+        logs = _logs_channel(interaction.guild)
+        if logs:
+            log_embed = discord.Embed(title="🔒  Ticket Closed", color=ERROR)
+            log_embed.set_thumbnail(url=member.display_avatar.url)
+            log_embed.add_field(name="💬  Ticket", value=f"`#{interaction.channel.name}`", inline=True)
+            log_embed.add_field(name="👤  Opened by", value=f"<@{owner_id}>" if owner_id else "Unknown", inline=True)
+            log_embed.add_field(name="🔒  Closed by", value=member.mention, inline=True)
+            if interaction.channel.topic:
+                log_embed.add_field(name="📋  Details", value=interaction.channel.topic[:1024], inline=False)
+            log_embed.timestamp = discord.utils.utcnow()
+            try:
+                await logs.send(embed=log_embed)
+            except discord.HTTPException:
+                pass
 
         await asyncio.sleep(5)
         await interaction.channel.delete(reason=f"Ticket closed by {member}")
