@@ -1,3 +1,5 @@
+import asyncio
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -96,7 +98,7 @@ class Setup(commands.Cog):
                 ephemeral=True,
             )
 
-    @app_commands.command(name="setup-verification", description="Post the verification panel (auto-creates Member/Unverified roles)")
+    @app_commands.command(name="setup-verification", description="Full verification setup: roles, channel lockdown, and panel")
     @app_commands.describe(channel="Channel to post the verification panel in")
     @is_admin()
     async def setup_verification(self, interaction: discord.Interaction, channel: discord.TextChannel):
@@ -123,6 +125,40 @@ class Setup(commands.Cog):
             )
             created.append(unverified_role)
 
+        # Lock the whole server down for Unverified: hide every category and
+        # every non-synced channel, so a new member only sees the verify channel.
+        hidden = 0
+        failed = 0
+        for cat in guild.categories:
+            try:
+                await cat.set_permissions(unverified_role, view_channel=False, reason="Verification setup: lockdown")
+                hidden += 1
+                await asyncio.sleep(0.35)
+            except discord.HTTPException:
+                failed += 1
+        for ch in guild.channels:
+            if isinstance(ch, discord.CategoryChannel) or ch.id == channel.id:
+                continue
+            if ch.category and ch.permissions_synced:
+                continue  # inherits the category overwrite we just set
+            try:
+                await ch.set_permissions(unverified_role, view_channel=False, reason="Verification setup: lockdown")
+                hidden += 1
+                await asyncio.sleep(0.35)
+            except discord.HTTPException:
+                failed += 1
+
+        # The verify channel itself: visible (read-only) for Unverified,
+        # hidden for verified Members so it disappears once they verify.
+        try:
+            await channel.set_permissions(
+                unverified_role, view_channel=True, send_messages=False, read_message_history=True,
+                reason="Verification setup: verify channel",
+            )
+            await channel.set_permissions(member_role, view_channel=False, reason="Verification setup: verify channel")
+        except discord.HTTPException:
+            failed += 1
+
         embed = discord.Embed(
             title="🎟️  Member Verification",
             description=(
@@ -144,6 +180,8 @@ class Setup(commands.Cog):
             summary += "\nCreated roles: " + ", ".join(r.mention for r in created)
         else:
             summary += f"\nUsing existing **{MEMBER_ROLE_NAME}** and **{UNVERIFIED_ROLE_NAME}** roles."
+        summary += f"\n🔒 Hidden from Unverified: `{hidden}` categories/channels" + (f" (`{failed}` failed)" if failed else "")
+        summary += f"\n👁️ Unverified members now only see {channel.mention} until they verify."
         summary += "\n⚠️ Make sure my bot role sits **above** both roles so I can assign them."
         await interaction.followup.send(embed=discord.Embed(description=summary, color=SUCCESS), ephemeral=True)
 
