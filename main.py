@@ -78,12 +78,29 @@ class Yoran(commands.Bot):
         )
         print(f"[Yoran] Online · {self.user} · {len(self.guilds)} server(s)")
 
+    async def _assign_unverified(self, member: discord.Member):
+        role = discord.utils.get(member.guild.roles, name="Unverified")
+        if role and role not in member.roles:
+            try:
+                await member.add_roles(role, reason="Auto-assigned on join")
+            except discord.HTTPException as e:
+                print(f"[Yoran] Could not assign Unverified to {member}: {e}", flush=True)
+
     async def on_member_join(self, member: discord.Member):
         if member.guild.id != STUDIOS_GUILD_ID:
             return
-        role = discord.utils.get(member.guild.roles, name="Unverified")
-        if role:
-            await member.add_roles(role, reason="Auto-assigned on join")
+        # Community servers with rules screening keep new members "pending";
+        # Discord forbids giving roles to pending members, so wait for
+        # on_member_update to fire once they accept the rules.
+        if member.pending:
+            return
+        await self._assign_unverified(member)
+
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        if after.guild.id != STUDIOS_GUILD_ID:
+            return
+        if before.pending and not after.pending:
+            await self._assign_unverified(after)
 
     async def on_guild_join(self, guild: discord.Guild):
         for channel in guild.text_channels:
