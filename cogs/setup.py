@@ -190,6 +190,7 @@ class Setup(commands.Cog):
         channel="Channel to post the ticket panel in",
         category="Category new ticket channels should be created under",
         logs_channel="Channel where ticket open/close logs will be sent (e.g. #ticket-logs)",
+        transcripts_channel="Channel where full ticket transcripts are saved on close (e.g. #transcripts)",
     )
     @is_admin()
     async def setup_tickets(
@@ -198,6 +199,7 @@ class Setup(commands.Cog):
         channel: discord.TextChannel,
         category: discord.CategoryChannel = None,
         logs_channel: discord.TextChannel = None,
+        transcripts_channel: discord.TextChannel = None,
     ):
         data = _load_tickets()
         gid = str(interaction.guild.id)
@@ -206,6 +208,8 @@ class Setup(commands.Cog):
             data[gid]["category_id"] = category.id
         if logs_channel:
             data[gid]["logs_channel_id"] = logs_channel.id
+        if transcripts_channel:
+            data[gid]["transcripts_channel_id"] = transcripts_channel.id
         _save_tickets(data)
 
         embed = discord.Embed(
@@ -229,6 +233,8 @@ class Setup(commands.Cog):
             summary += f"\nTickets will be created under **{category.name}**."
         if logs_channel:
             summary += f"\nOpen/close logs will go to {logs_channel.mention}."
+        if transcripts_channel:
+            summary += f"\nFull transcripts will be saved to {transcripts_channel.mention}."
         await interaction.response.send_message(
             embed=discord.Embed(description=summary, color=SUCCESS),
             ephemeral=True,

@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+import io
 import json
 import os
 import asyncio
@@ -25,6 +26,26 @@ def _logs_channel(guild: discord.Guild) -> discord.TextChannel | None:
     data = _load()
     ch_id = data.get(str(guild.id), {}).get("logs_channel_id")
     return guild.get_channel(ch_id) if ch_id else None
+
+
+def _transcripts_channel(guild: discord.Guild) -> discord.TextChannel | None:
+    data = _load()
+    ch_id = data.get(str(guild.id), {}).get("transcripts_channel_id")
+    return guild.get_channel(ch_id) if ch_id else None
+
+
+async def _build_transcript(channel: discord.TextChannel) -> discord.File:
+    lines = [f"Transcript of #{channel.name} — {channel.topic or 'no topic'}", "=" * 60]
+    async for msg in channel.history(limit=500, oldest_first=True):
+        stamp = msg.created_at.strftime("%Y-%m-%d %H:%M")
+        content = msg.content or ""
+        if msg.embeds:
+            content += " [embed]"
+        if msg.attachments:
+            content += " " + " ".join(a.url for a in msg.attachments)
+        lines.append(f"[{stamp}] {msg.author}: {content}")
+    buf = io.BytesIO("\n".join(lines).encode("utf-8"))
+    return discord.File(buf, filename=f"transcript-{channel.name}.txt")
 
 
 def _staff_overwrites(guild: discord.Guild, user: discord.Member) -> dict:
@@ -171,6 +192,19 @@ class TicketControlView(discord.ui.View):
         if ch_id in data.get(gid, {}).get("open", {}):
             del data[gid]["open"][ch_id]
             _save(data)
+
+        transcripts = _transcripts_channel(interaction.guild)
+        if transcripts:
+            try:
+                file = await _build_transcript(interaction.channel)
+                t_embed = discord.Embed(title="📜  Ticket Transcript", color=PRIMARY)
+                t_embed.add_field(name="💬  Ticket", value=f"`#{interaction.channel.name}`", inline=True)
+                t_embed.add_field(name="👤  Opened by", value=f"<@{owner_id}>" if owner_id else "Unknown", inline=True)
+                t_embed.add_field(name="🔒  Closed by", value=member.mention, inline=True)
+                t_embed.timestamp = discord.utils.utcnow()
+                await transcripts.send(embed=t_embed, file=file)
+            except discord.HTTPException:
+                pass
 
         logs = _logs_channel(interaction.guild)
         if logs:
