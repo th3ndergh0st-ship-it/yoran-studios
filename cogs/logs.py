@@ -2,11 +2,9 @@ import json
 import os
 
 import discord
-from discord import app_commands
 from discord.ext import commands
 
 from config import SUCCESS, ERROR, WARNING, INFO
-from utils import is_admin
 
 LOGS_FILE = "data/logs.json"
 
@@ -21,22 +19,9 @@ def _load() -> dict:
         return json.load(f)
 
 
-def _save(data: dict):
-    os.makedirs("data", exist_ok=True)
-    with open(LOGS_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-
 class Logs(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
-        if not interaction.response.is_done():
-            await interaction.response.send_message(
-                embed=discord.Embed(description="❌ You don't have the required role for this command.", color=ERROR),
-                ephemeral=True,
-            )
 
     def _channel(self, guild: discord.Guild, key: str) -> discord.TextChannel | None:
         ch_id = _load().get(str(guild.id), {}).get(key)
@@ -49,46 +34,6 @@ class Logs(commands.Cog):
                 await channel.send(embed=embed)
             except discord.HTTPException:
                 pass
-
-    # ── Setup command ────────────────────────────────────────────────────────────
-
-    @app_commands.command(name="setup-logs", description="Connect the server's log channels")
-    @app_commands.describe(
-        ban_logs="Channel for ban/unban logs",
-        mod_logs="Channel for kicks, timeouts and purges",
-        action_logs="Channel for message edits/deletes, nicknames, roles, channels",
-        automod_logs="Channel for Discord AutoMod triggers",
-    )
-    @is_admin()
-    async def setup_logs(
-        self,
-        interaction: discord.Interaction,
-        ban_logs: discord.TextChannel = None,
-        mod_logs: discord.TextChannel = None,
-        action_logs: discord.TextChannel = None,
-        automod_logs: discord.TextChannel = None,
-    ):
-        if not any([ban_logs, mod_logs, action_logs, automod_logs]):
-            return await interaction.response.send_message(
-                embed=discord.Embed(description="❌ Pass at least one log channel to configure.", color=ERROR),
-                ephemeral=True,
-            )
-        data = _load()
-        cfg = data.setdefault(str(interaction.guild.id), {})
-        lines = []
-        for key, ch in [("ban", ban_logs), ("mod", mod_logs), ("action", action_logs), ("automod", automod_logs)]:
-            if ch:
-                cfg[key] = ch.id
-                lines.append(f"> **{key}-logs** → {ch.mention}")
-        _save(data)
-        await interaction.response.send_message(
-            embed=discord.Embed(
-                title="🪵  Log Channels Configured",
-                description="\n".join(lines),
-                color=SUCCESS,
-            ),
-            ephemeral=True,
-        )
 
     # ── Ban / moderation logs (audit-log based: catches manual + bot actions) ────
 

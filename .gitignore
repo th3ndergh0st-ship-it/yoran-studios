@@ -1,4 +1,11 @@
 .env
-data/
 __pycache__/
 *.pyc
+
+# Runtime data is ephemeral on Railway; only committed baseline configs
+# below ship with each deploy.
+data/*
+!data/tickets.json
+!data/logs.json
+!data/membercount.json
+!data/welcome.json
