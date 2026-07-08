@@ -184,7 +184,11 @@ class Giveaway(commands.Cog):
 
     # ── Commands ──────────────────────────────────────────────────────────────
 
-    giveaway = app_commands.Group(name="giveaway", description="Giveaway commands")
+    giveaway = app_commands.Group(
+        name="giveaway",
+        description="Giveaway commands",
+        default_permissions=discord.Permissions(manage_messages=True),
+    )
 
     @giveaway.command(name="start", description="Start a giveaway")
     @app_commands.describe(

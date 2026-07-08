@@ -267,9 +267,8 @@ class Games(commands.Cog):
         ]
         return choices[:25]
 
-    game = app_commands.Group(name="game", description="Browse Yoran Studios games")
-
     @app_commands.command(name="gamepanel", description="Open the game management panel (Owner only)")
+    @app_commands.default_permissions(administrator=True)
     @is_owner()
     async def gamepanel(self, interaction: discord.Interaction):
         embed = discord.Embed(
@@ -284,7 +283,7 @@ class Games(commands.Cog):
         embed.set_footer(text="Yoran Studios  •  Owner tools")
         await interaction.response.send_message(embed=embed, view=GamePanelView(interaction.user.id), ephemeral=True)
 
-    @game.command(name="list", description="List all Yoran Studios games")
+    @app_commands.command(name="games", description="List all Yoran Studios games")
     async def games_list(self, interaction: discord.Interaction):
         data = _load()
         games = _guild_games(data, interaction.guild.id)
@@ -293,7 +292,7 @@ class Games(commands.Cog):
         if not games:
             embed.description = "No games have been announced yet. Stay tuned!"
         else:
-            embed.description = "Use `/game notify` to get pinged when there's news about a specific game."
+            embed.description = "Use `/notify` to get pinged when there's news about a specific game."
             for g in games.values():
                 emoji, _ = _status_meta(g["status"])
                 embed.add_field(name=f"{emoji}  {g['name']}  •  {g['status']}", value=g["description"], inline=False)
@@ -301,7 +300,7 @@ class Games(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    @game.command(name="info", description="View detailed info about a game")
+    @app_commands.command(name="gameinfo", description="View detailed info about a game")
     @app_commands.describe(game="Game to look up")
     @app_commands.autocomplete(game=_game_autocomplete)
     async def gameinfo(self, interaction: discord.Interaction, game: str):
@@ -320,10 +319,10 @@ class Games(commands.Cog):
         embed.add_field(name="🔔  Notify Role", value=role.mention if role else "—", inline=True)
         if info.get("image_url"):
             embed.set_image(url=info["image_url"])
-        embed.set_footer(text="Use /game notify to get pinged about this game")
+        embed.set_footer(text="Use /notify to get pinged about this game")
         await interaction.response.send_message(embed=embed)
 
-    @game.command(name="notify", description="Toggle the notify role for a game")
+    @app_commands.command(name="notify", description="Toggle the notify role for a game")
     @app_commands.describe(game="Game you want to be notified about")
     @app_commands.autocomplete(game=_game_autocomplete)
     async def notify(self, interaction: discord.Interaction, game: str):

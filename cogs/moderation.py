@@ -208,21 +208,22 @@ class Moderation(commands.Cog):
                 ephemeral=True,
             )
 
-    mod = app_commands.Group(name="mod", description="Moderation commands")
-
-    @mod.command(name="ban", description="Ban a member from the server")
+    @app_commands.command(name="ban", description="Ban a member from the server")
+    @app_commands.default_permissions(ban_members=True)
     @app_commands.describe(member="Member to ban")
     @is_mod()
     async def ban(self, interaction: discord.Interaction, member: discord.Member):
         await interaction.response.send_modal(BanModal(self.bot, member))
 
-    @mod.command(name="kick", description="Kick a member from the server")
+    @app_commands.command(name="kick", description="Kick a member from the server")
+    @app_commands.default_permissions(kick_members=True)
     @app_commands.describe(member="Member to kick")
     @is_mod()
     async def kick(self, interaction: discord.Interaction, member: discord.Member):
         await interaction.response.send_modal(KickModal(self.bot, member))
 
-    @mod.command(name="unban", description="Unban a user by their ID")
+    @app_commands.command(name="unban", description="Unban a user by their ID")
+    @app_commands.default_permissions(ban_members=True)
     @app_commands.describe(user_id="Discord user ID to unban", reason="Reason for unbanning")
     @is_mod()
     async def unban(self, interaction: discord.Interaction, user_id: str, reason: str = "No reason provided"):
@@ -242,13 +243,15 @@ class Moderation(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.followup.send(embed=embed)
 
-    @mod.command(name="timeout", description="Timeout a member")
+    @app_commands.command(name="timeout", description="Timeout a member")
+    @app_commands.default_permissions(moderate_members=True)
     @app_commands.describe(member="Member to timeout")
     @is_support()
     async def timeout(self, interaction: discord.Interaction, member: discord.Member):
         await interaction.response.send_modal(TimeoutModal(self.bot, member))
 
-    @mod.command(name="untimeout", description="Remove timeout from a member")
+    @app_commands.command(name="untimeout", description="Remove timeout from a member")
+    @app_commands.default_permissions(moderate_members=True)
     @app_commands.describe(member="Member to untimeout")
     @is_support()
     async def untimeout(self, interaction: discord.Interaction, member: discord.Member):
@@ -266,13 +269,15 @@ class Moderation(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    @mod.command(name="warn", description="Warn a member")
+    @app_commands.command(name="warn", description="Warn a member")
+    @app_commands.default_permissions(moderate_members=True)
     @app_commands.describe(member="Member to warn")
     @is_support()
     async def warn(self, interaction: discord.Interaction, member: discord.Member):
         await interaction.response.send_modal(WarnModal(self.bot, member))
 
-    @mod.command(name="warnings", description="View warnings for a member")
+    @app_commands.command(name="warnings", description="View warnings for a member")
+    @app_commands.default_permissions(moderate_members=True)
     @app_commands.describe(member="Member to check")
     @is_helper()
     async def warnings(self, interaction: discord.Interaction, member: discord.Member):
@@ -296,7 +301,8 @@ class Moderation(commands.Cog):
         embed.set_footer(text=f"Total: {len(warns)} warning(s)  •  Yoran Moderation")
         await interaction.response.send_message(embed=embed)
 
-    @mod.command(name="clearwarnings", description="Clear all warnings for a member")
+    @app_commands.command(name="clearwarnings", description="Clear all warnings for a member")
+    @app_commands.default_permissions(moderate_members=True)
     @app_commands.describe(member="Member to clear warnings for")
     @is_mod()
     async def clearwarnings(self, interaction: discord.Interaction, member: discord.Member):
@@ -313,7 +319,8 @@ class Moderation(commands.Cog):
         embed.set_footer(**_footer(self.bot))
         await interaction.response.send_message(embed=embed)
 
-    @mod.command(name="purge", description="Delete messages in this channel")
+    @app_commands.command(name="purge", description="Delete messages in this channel")
+    @app_commands.default_permissions(manage_messages=True)
     @app_commands.describe(amount="Number of messages to delete (1–100)", member="Only delete messages from this member")
     @is_support()
     async def purge(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1, 100], member: discord.Member = None):
@@ -332,7 +339,8 @@ class Moderation(commands.Cog):
         embed.set_footer(**_footer(self.bot))
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @mod.command(name="slowmode", description="Set slowmode for this channel")
+    @app_commands.command(name="slowmode", description="Set slowmode for this channel")
+    @app_commands.default_permissions(manage_channels=True)
     @app_commands.describe(seconds="Seconds between messages — 0 to disable")
     @is_support()
     async def slowmode(self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 21600]):
@@ -346,7 +354,8 @@ class Moderation(commands.Cog):
         embed.set_footer(**_footer(self.bot))
         await interaction.response.send_message(embed=embed)
 
-    @mod.command(name="lock", description="Lock a channel so members can't send messages")
+    @app_commands.command(name="lock", description="Lock a channel so members can't send messages")
+    @app_commands.default_permissions(manage_channels=True)
     @app_commands.describe(channel="Channel to lock (defaults to current)", reason="Reason for locking")
     @is_mod()
     async def lock(self, interaction: discord.Interaction, channel: discord.TextChannel = None, reason: str = "No reason provided"):
@@ -363,7 +372,8 @@ class Moderation(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    @mod.command(name="unlock", description="Unlock a channel")
+    @app_commands.command(name="unlock", description="Unlock a channel")
+    @app_commands.default_permissions(manage_channels=True)
     @app_commands.describe(channel="Channel to unlock (defaults to current)", reason="Reason for unlocking")
     @is_mod()
     async def unlock(self, interaction: discord.Interaction, channel: discord.TextChannel = None, reason: str = "No reason provided"):
@@ -380,7 +390,8 @@ class Moderation(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    @mod.command(name="nick", description="Change a member's nickname")
+    @app_commands.command(name="nick", description="Change a member's nickname")
+    @app_commands.default_permissions(manage_nicknames=True)
     @app_commands.describe(member="Member to nickname", nickname="New nickname — leave empty to reset")
     @is_support()
     async def nick(self, interaction: discord.Interaction, member: discord.Member, nickname: str = None):
@@ -393,7 +404,8 @@ class Moderation(commands.Cog):
         embed.set_footer(**_footer(self.bot))
         await interaction.response.send_message(embed=embed)
 
-    @mod.command(name="role", description="Add or remove a role from a member")
+    @app_commands.command(name="role", description="Add or remove a role from a member")
+    @app_commands.default_permissions(manage_roles=True)
     @app_commands.describe(member="Target member", role="Role to add or remove")
     @is_admin()
     async def role(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role):

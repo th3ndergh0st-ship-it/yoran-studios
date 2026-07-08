@@ -110,12 +110,10 @@ class Economy(commands.Cog):
                 ephemeral=True,
             )
 
-    economy = app_commands.Group(name="economy", description="Yoran Studios economy commands")
-    shop = app_commands.Group(name="shop", description="Coin shop commands", parent=economy)
 
     # ── Balance / bank ──────────────────────────────────────────────────────────
 
-    @economy.command(name="balance", description="Check your (or someone else's) wallet and bank balance")
+    @app_commands.command(name="balance", description="Check your (or someone else's) wallet and bank balance")
     @app_commands.describe(member="Member to check")
     async def balance(self, interaction: discord.Interaction, member: discord.Member = None):
         target = member or interaction.user
@@ -128,7 +126,7 @@ class Economy(commands.Cog):
         embed.set_thumbnail(url=target.display_avatar.url)
         await interaction.response.send_message(embed=embed)
 
-    @economy.command(name="deposit", description="Move coins from your wallet to your bank (safe from /economy rob)")
+    @app_commands.command(name="deposit", description="Move coins from your wallet to your bank (safe from /rob)")
     @app_commands.describe(amount="Amount to deposit, or 'all'")
     async def deposit(self, interaction: discord.Interaction, amount: str):
         wallet = econ.get_balance(interaction.guild.id, interaction.user.id)
@@ -147,7 +145,7 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"🏦 Deposited {_fmt(amt)}. Bank balance: {_fmt(new_bank)}", color=SUCCESS)
         )
 
-    @economy.command(name="withdraw", description="Move coins from your bank back to your wallet")
+    @app_commands.command(name="withdraw", description="Move coins from your bank back to your wallet")
     @app_commands.describe(amount="Amount to withdraw, or 'all'")
     async def withdraw(self, interaction: discord.Interaction, amount: str):
         bank = econ.get_bank(interaction.guild.id, interaction.user.id)
@@ -166,7 +164,7 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"👛 Withdrew {_fmt(amt)}. Wallet balance: {_fmt(new_wallet)}", color=SUCCESS)
         )
 
-    @economy.command(name="pay", description="Send coins to another member")
+    @app_commands.command(name="pay", description="Send coins to another member")
     @app_commands.describe(member="Member to pay", amount="Amount to send")
     async def pay(self, interaction: discord.Interaction, member: discord.Member, amount: app_commands.Range[int, 1, 1_000_000]):
         if member.id == interaction.user.id:
@@ -189,7 +187,7 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"✅ {interaction.user.mention} sent {_fmt(amount)} to {member.mention}!", color=SUCCESS)
         )
 
-    @economy.command(name="leaderboard", description="View the richest members in this server")
+    @app_commands.command(name="leaderboard", description="View the richest members in this server")
     async def leaderboard(self, interaction: discord.Interaction):
         top = econ.get_leaderboard(interaction.guild.id, 10)
         embed = discord.Embed(title="🏆  Coin Leaderboard", color=GOLD, description="Ranked by net worth (wallet + bank).")
@@ -209,7 +207,7 @@ class Economy(commands.Cog):
 
     # ── Earning ──────────────────────────────────────────────────────────────────
 
-    @economy.command(name="daily", description="Claim your daily reward")
+    @app_commands.command(name="daily", description="Claim your daily reward")
     async def daily(self, interaction: discord.Interaction):
         remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_daily", DAILY_COOLDOWN)
         if remaining > 0:
@@ -227,7 +225,7 @@ class Economy(commands.Cog):
             color=SUCCESS,
         ))
 
-    @economy.command(name="work", description="Work your job (or a odd job) to earn coins")
+    @app_commands.command(name="work", description="Work your job (or a odd job) to earn coins")
     async def work(self, interaction: discord.Interaction):
         remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_work", WORK_COOLDOWN)
         if remaining > 0:
@@ -252,7 +250,7 @@ class Economy(commands.Cog):
             color=SUCCESS,
         ))
 
-    @economy.command(name="crime", description="Attempt a risky crime for a bigger payout")
+    @app_commands.command(name="crime", description="Attempt a risky crime for a bigger payout")
     async def crime(self, interaction: discord.Interaction):
         remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_crime", CRIME_COOLDOWN)
         if remaining > 0:
@@ -276,7 +274,7 @@ class Economy(commands.Cog):
             color = ERROR
         await interaction.response.send_message(embed=discord.Embed(title="🕵️  Crime", description=desc, color=color))
 
-    @economy.command(name="beg", description="Beg for a few coins")
+    @app_commands.command(name="beg", description="Beg for a few coins")
     async def beg(self, interaction: discord.Interaction):
         remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_beg", BEG_COOLDOWN)
         if remaining > 0:
@@ -296,7 +294,7 @@ class Economy(commands.Cog):
             color = SUCCESS
         await interaction.response.send_message(embed=discord.Embed(title="🥺  Begging", description=desc, color=color))
 
-    @economy.command(name="rob", description="Attempt to rob coins from another member's wallet")
+    @app_commands.command(name="rob", description="Attempt to rob coins from another member's wallet")
     @app_commands.describe(member="Member to rob")
     async def rob(self, interaction: discord.Interaction, member: discord.Member):
         if member.id == interaction.user.id:
@@ -341,7 +339,7 @@ class Economy(commands.Cog):
 
     # ── Gambling ─────────────────────────────────────────────────────────────────
 
-    @economy.command(name="coinflip", description="Bet coins on a coin flip")
+    @app_commands.command(name="coinflip", description="Bet coins on a coin flip")
     @app_commands.describe(bet="Amount to bet", choice="Heads or tails")
     @app_commands.choices(choice=[app_commands.Choice(name="Heads", value="heads"), app_commands.Choice(name="Tails", value="tails")])
     async def coinflip(self, interaction: discord.Interaction, bet: app_commands.Range[int, 10, 1_000_000], choice: app_commands.Choice[str]):
@@ -363,7 +361,7 @@ class Economy(commands.Cog):
             color = ERROR
         await interaction.response.send_message(embed=discord.Embed(title="🪙  Coinflip", description=desc, color=color))
 
-    @economy.command(name="slots", description="Try your luck on the slot machine")
+    @app_commands.command(name="slots", description="Try your luck on the slot machine")
     @app_commands.describe(bet="Amount to bet")
     async def slots(self, interaction: discord.Interaction, bet: app_commands.Range[int, 10, 1_000_000]):
         wallet = econ.get_balance(interaction.guild.id, interaction.user.id)
@@ -395,19 +393,19 @@ class Economy(commands.Cog):
 
     # ── Jobs ─────────────────────────────────────────────────────────────────────
 
-    @economy.command(name="jobs", description="View available jobs and their pay ranges")
+    @app_commands.command(name="jobs", description="View available jobs and their pay ranges")
     async def jobs_list(self, interaction: discord.Interaction):
         job = econ.get_job(interaction.guild.id, interaction.user.id)
         embed = discord.Embed(
             title="💼  Available Jobs",
-            description=f"Your current job: **{job or 'Unemployed'}**\nUse `/economy setjob` to apply.",
+            description=f"Your current job: **{job or 'Unemployed'}**\nUse `/setjob` to apply.",
             color=INFO,
         )
         for name, info in JOBS.items():
-            embed.add_field(name=name, value=f"{econ.CURRENCY_EMOJI} {info['min']}-{info['max']} per `/economy work`", inline=True)
+            embed.add_field(name=name, value=f"{econ.CURRENCY_EMOJI} {info['min']}-{info['max']} per `/work`", inline=True)
         await interaction.response.send_message(embed=embed)
 
-    @economy.command(name="setjob", description="Apply for a job (changes your /economy work payout)")
+    @app_commands.command(name="setjob", description="Apply for a job (changes your /work payout)")
     @app_commands.describe(job="Job to apply for")
     @app_commands.choices(job=[app_commands.Choice(name=name, value=name) for name in JOBS] + [app_commands.Choice(name="Unemployed", value="Unemployed")])
     async def setjob(self, interaction: discord.Interaction, job: app_commands.Choice[str]):
@@ -417,9 +415,9 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"✅ You are now a **{chosen or 'Unemployed'}**.", color=SUCCESS)
         )
 
-    # ── Shop (nested under /economy shop) ──────────────────────────────────────
+    # ── Shop ─────────────────────────────────────────────────────────────────────
 
-    @shop.command(name="view", description="View items available in the coin shop")
+    @app_commands.command(name="shop", description="View items available in the coin shop")
     async def shop_view(self, interaction: discord.Interaction):
         items = econ.get_shop_items(interaction.guild.id)
         embed = discord.Embed(title="🛒  Coin Shop", color=PRIMARY)
@@ -433,10 +431,10 @@ class Economy(commands.Cog):
                     value=f"{_fmt(item['price'])}\nGrants: {role.mention if role else '—'}",
                     inline=True,
                 )
-            embed.set_footer(text="Use /economy shop buy <item> to purchase")
+            embed.set_footer(text="Use /buy <item> to purchase")
         await interaction.response.send_message(embed=embed)
 
-    @shop.command(name="buy", description="Buy an item from the coin shop")
+    @app_commands.command(name="buy", description="Buy an item from the coin shop")
     @app_commands.describe(name="Name of the item to buy")
     async def shop_buy(self, interaction: discord.Interaction, name: str):
         items = econ.get_shop_items(interaction.guild.id)
@@ -463,7 +461,8 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"✅ You bought **{item['name']}**!", color=SUCCESS)
         )
 
-    @shop.command(name="additem", description="Add an item to the coin shop (admin)")
+    @app_commands.command(name="shop-add", description="Add an item to the coin shop (admin)")
+    @app_commands.default_permissions(administrator=True)
     @app_commands.describe(name="Item name", price="Price in coins", role="Role granted when purchased")
     @is_admin()
     async def shop_additem(self, interaction: discord.Interaction, name: str, price: app_commands.Range[int, 1, 1_000_000], role: discord.Role):
@@ -472,7 +471,8 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"✅ Added **{name}** ({_fmt(price)}) → {role.mention} to the shop.", color=SUCCESS)
         )
 
-    @shop.command(name="removeitem", description="Remove an item from the coin shop (admin)")
+    @app_commands.command(name="shop-remove", description="Remove an item from the coin shop (admin)")
+    @app_commands.default_permissions(administrator=True)
     @app_commands.describe(name="Item name to remove")
     @is_admin()
     async def shop_removeitem(self, interaction: discord.Interaction, name: str):

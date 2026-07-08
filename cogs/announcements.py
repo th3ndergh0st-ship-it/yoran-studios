@@ -101,15 +101,15 @@ class Announcements(commands.Cog):
                 ephemeral=True,
             )
 
-    announce = app_commands.Group(name="announce", description="Announcement commands")
-
-    @announce.command(name="send", description="Send an announcement to a channel")
+    @app_commands.command(name="announce", description="Send an announcement to a channel")
+    @app_commands.default_permissions(manage_guild=True)
     @app_commands.describe(channel="Channel to announce in")
     @is_admin()
     async def announce_send(self, interaction: discord.Interaction, channel: discord.TextChannel):
         await interaction.response.send_modal(AnnounceModal(channel))
 
-    @announce.command(name="embed", description="Send a custom embed to a channel")
+    @app_commands.command(name="embed", description="Send a custom embed to a channel")
+    @app_commands.default_permissions(manage_guild=True)
     @app_commands.describe(channel="Channel to post in")
     @is_admin()
     async def embed_cmd(self, interaction: discord.Interaction, channel: discord.TextChannel):
