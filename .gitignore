@@ -9,3 +9,4 @@ data/*
 !data/logs.json
 !data/membercount.json
 !data/welcome.json
+!data/counting.json

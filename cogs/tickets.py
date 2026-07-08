@@ -7,18 +7,19 @@ import asyncio
 
 from config import PRIMARY, SUCCESS, ERROR, WARNING
 from utils import HELPER_ROLES as STAFF_ROLES
+import storage
 
 
 def _load() -> dict:
-    if not os.path.exists("data/tickets.json"):
+    if not os.path.exists(storage.path("tickets.json")):
         return {}
-    with open("data/tickets.json", "r") as f:
+    with open(storage.path("tickets.json"), "r") as f:
         return json.load(f)
 
 
 def _save(data: dict):
-    os.makedirs("data", exist_ok=True)
-    with open("data/tickets.json", "w") as f:
+    os.makedirs(storage.DATA_DIR, exist_ok=True)
+    with open(storage.path("tickets.json"), "w") as f:
         json.dump(data, f, indent=2)
 
 

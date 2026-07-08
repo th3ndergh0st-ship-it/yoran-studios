@@ -74,6 +74,8 @@ class TriviaView(discord.ui.View):
         super().__init__(timeout=30)
         self.author_id = author_id
         self.question = question
+        self.message: discord.Message | None = None
+        self.answered = False
         for i, option in enumerate(question["options"]):
             self.add_item(TriviaButton(i, option))
 
@@ -87,8 +89,19 @@ class TriviaView(discord.ui.View):
         return True
 
     async def on_timeout(self):
+        if self.answered or self.message is None:
+            return
         for item in self.children:
             item.disabled = True
+            if isinstance(item, TriviaButton) and item.index == self.question["answer"]:
+                item.style = discord.ButtonStyle.success
+        embed = self.message.embeds[0]
+        embed.color = ERROR
+        embed.add_field(name="Result", value="⌛ Time's up! The correct answer is highlighted.", inline=False)
+        try:
+            await self.message.edit(embed=embed, view=self)
+        except discord.HTTPException:
+            pass
 
 
 class TriviaButton(discord.ui.Button):
@@ -98,6 +111,7 @@ class TriviaButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         view: TriviaView = self.view
+        view.answered = True
         correct = self.index == view.question["answer"]
 
         for item in view.children:
@@ -141,6 +155,7 @@ class Education(commands.Cog):
         embed.set_footer(text="You have 30 seconds to answer — correct answers earn coins!")
         view = TriviaView(interaction.user.id, question)
         await interaction.response.send_message(embed=embed, view=view)
+        view.message = await interaction.original_response()
 
 
 async def setup(bot: commands.Bot):

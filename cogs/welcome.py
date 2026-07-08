@@ -4,18 +4,19 @@ import json
 import os
 
 from config import PRIMARY, SUCCESS, ERROR
+import storage
 
 
 def _load() -> dict:
-    if not os.path.exists("data/welcome.json"):
+    if not os.path.exists(storage.path("welcome.json")):
         return {}
-    with open("data/welcome.json", "r") as f:
+    with open(storage.path("welcome.json"), "r") as f:
         return json.load(f)
 
 
 def _save(data: dict):
-    os.makedirs("data", exist_ok=True)
-    with open("data/welcome.json", "w") as f:
+    os.makedirs(storage.DATA_DIR, exist_ok=True)
+    with open(storage.path("welcome.json"), "w") as f:
         json.dump(data, f, indent=2)
 
 

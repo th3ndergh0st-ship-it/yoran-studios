@@ -7,18 +7,19 @@ import os
 
 from config import PRIMARY, SUCCESS, ERROR, WARNING
 from utils import is_helper, is_support, is_mod, is_admin
+import storage
 
 
 def _load_warns() -> dict:
-    if not os.path.exists("data/warnings.json"):
+    if not os.path.exists(storage.path("warnings.json")):
         return {}
-    with open("data/warnings.json", "r") as f:
+    with open(storage.path("warnings.json"), "r") as f:
         return json.load(f)
 
 
 def _save_warns(data: dict):
-    os.makedirs("data", exist_ok=True)
-    with open("data/warnings.json", "w") as f:
+    os.makedirs(storage.DATA_DIR, exist_ok=True)
+    with open(storage.path("warnings.json"), "w") as f:
         json.dump(data, f, indent=2)
 
 
@@ -202,9 +203,14 @@ class Moderation(commands.Cog):
         self.bot = bot
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        if isinstance(error, app_commands.CheckFailure):
+            msg = "❌ You don't have the required role for this command."
+        else:
+            print(f"[Yoran] Command error in {getattr(interaction.command, 'qualified_name', '?')}: {error!r}", flush=True)
+            msg = "❌ Something went wrong running that command — the error was logged."
         if not interaction.response.is_done():
             await interaction.response.send_message(
-                embed=discord.Embed(description="❌ You don't have the required role for this command.", color=ERROR),
+                embed=discord.Embed(description=msg, color=ERROR),
                 ephemeral=True,
             )
 
@@ -325,15 +331,16 @@ class Moderation(commands.Cog):
     @is_support()
     async def purge(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1, 100], member: discord.Member = None):
         await interaction.response.defer(ephemeral=True)
-        messages = [
-            msg async for msg in interaction.channel.history(limit=amount)
-            if member is None or msg.author == member
-        ]
-        if messages:
-            await interaction.channel.delete_messages(messages)
+        # Discord refuses to bulk-delete messages older than 14 days, so let
+        # purge() split into bulk + individual deletes as needed.
+        deleted = await interaction.channel.purge(
+            limit=amount,
+            check=lambda msg: member is None or msg.author == member,
+            reason=f"Purged by {interaction.user}",
+        )
         embed = discord.Embed(
             title="🗑️  Messages Purged",
-            description=f"Deleted **{len(messages)}** message(s){f' from {member.mention}' if member else ''}.",
+            description=f"Deleted **{len(deleted)}** message(s){f' from {member.mention}' if member else ''}.",
             color=SUCCESS,
         )
         embed.set_footer(**_footer(self.bot))

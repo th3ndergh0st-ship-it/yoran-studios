@@ -5,8 +5,9 @@ import discord
 from discord.ext import commands
 
 from config import SUCCESS, ERROR, WARNING, INFO
+import storage
 
-LOGS_FILE = "data/logs.json"
+LOGS_FILE = storage.path("logs.json")
 
 # Role changes made by the verification flow itself would flood action-logs.
 IGNORED_ROLE_NAMES = {"Member", "Unverified"}

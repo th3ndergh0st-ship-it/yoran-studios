@@ -95,9 +95,14 @@ class Announcements(commands.Cog):
         self.bot = bot
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        if isinstance(error, app_commands.CheckFailure):
+            msg = "❌ You don't have the required role for this command."
+        else:
+            print(f"[Yoran] Command error in {getattr(interaction.command, 'qualified_name', '?')}: {error!r}", flush=True)
+            msg = "❌ Something went wrong running that command — the error was logged."
         if not interaction.response.is_done():
             await interaction.response.send_message(
-                embed=discord.Embed(description="❌ You don't have the required role for this command.", color=ERROR),
+                embed=discord.Embed(description=msg, color=ERROR),
                 ephemeral=True,
             )
 

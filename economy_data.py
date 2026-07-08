@@ -1,11 +1,13 @@
 import json
 import os
 
+import storage
+
 CURRENCY_NAME  = "YoranCoins"
 CURRENCY_EMOJI = "🪙"
 
-ECON_FILE = "data/economy.json"
-SHOP_FILE = "data/shop.json"
+ECON_FILE = storage.path("economy.json")
+SHOP_FILE = storage.path("shop.json")
 
 
 def _load(path: str) -> dict:
@@ -16,7 +18,7 @@ def _load(path: str) -> dict:
 
 
 def _save(path: str, data: dict):
-    os.makedirs("data", exist_ok=True)
+    os.makedirs(storage.DATA_DIR, exist_ok=True)
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
 

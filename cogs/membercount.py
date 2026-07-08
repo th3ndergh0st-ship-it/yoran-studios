@@ -5,7 +5,8 @@ import time
 import discord
 from discord.ext import commands, tasks
 
-COUNT_FILE = "data/membercount.json"
+import storage
+COUNT_FILE = storage.path("membercount.json")
 NAME_FORMAT = "Members: {count}"
 # Discord only allows ~2 channel renames per 10 minutes, so between the
 # instant updates we leave a safety gap and let the loop catch up.

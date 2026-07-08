@@ -5,8 +5,10 @@ from discord.ext import commands
 import os
 from dotenv import load_dotenv
 from keepalive import start_keepalive
+import storage
 
 load_dotenv()
+storage.bootstrap()
 
 # This bot is exclusive to the Yoran Studios server. Slash commands are
 # refused everywhere else — the Yoran Shop server has its own separate bot.
@@ -51,6 +53,8 @@ class Yoran(commands.Bot):
             "cogs.education",
             "cogs.membercount",
             "cogs.logs",
+            "cogs.counting",
+            "cogs.levels",
         ]
         for ext in extensions:
             await self.load_extension(ext)

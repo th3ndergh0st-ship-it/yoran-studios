@@ -10,8 +10,9 @@ from discord.ext import commands, tasks
 
 from config import SUCCESS, ERROR, WARNING, GOLD
 from utils import is_mod
+import storage
 
-GIVEAWAYS_FILE = "data/giveaways.json"
+GIVEAWAYS_FILE = storage.path("giveaways.json")
 ENDED_COLOR    = 0x747f8d
 
 
@@ -23,7 +24,7 @@ def _load() -> dict:
 
 
 def _save(data: dict):
-    os.makedirs("data", exist_ok=True)
+    os.makedirs(storage.DATA_DIR, exist_ok=True)
     with open(GIVEAWAYS_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
@@ -318,9 +319,14 @@ class Giveaway(commands.Cog):
         )
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        if isinstance(error, app_commands.CheckFailure):
+            msg = "❌ You don't have the required role for this command."
+        else:
+            print(f"[Yoran] Command error in {getattr(interaction.command, 'qualified_name', '?')}: {error!r}", flush=True)
+            msg = "❌ Something went wrong running that command — the error was logged."
         if not interaction.response.is_done():
             await interaction.response.send_message(
-                embed=discord.Embed(description="❌ You don't have the required role for this command.", color=ERROR),
+                embed=discord.Embed(description=msg, color=ERROR),
                 ephemeral=True,
             )
 
