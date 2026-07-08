@@ -75,12 +75,20 @@ class Levels(commands.Cog):
             user["level"] += 1
             leveled_up = True
 
+        level = user["level"]
+        # Guard against duplicate announcements (e.g. two bot processes
+        # overlapping during a redeploy): only announce levels we haven't
+        # announced before, and persist that marker with the XP data.
+        already_announced = user.get("announced", 0)
+        should_announce = leveled_up and level > already_announced
+        if should_announce:
+            user["announced"] = level
+
         _save(data)
 
-        if not leveled_up:
+        if not should_announce:
             return
 
-        level = user["level"]
         try:
             if level in LEVEL_ROLES:
                 await self._sync_level_role(message.author, level)
@@ -91,14 +99,16 @@ class Levels(commands.Cog):
                             f"and earned the **{LEVEL_ROLES[level]}** role!"
                         ),
                         color=GOLD,
-                    )
+                    ),
+                    delete_after=12,
                 )
             else:
                 await message.channel.send(
                     embed=discord.Embed(
                         description=f"🎉 {message.author.mention} leveled up to **Level {level}**!",
                         color=PRIMARY,
-                    )
+                    ),
+                    delete_after=12,
                 )
         except discord.HTTPException:
             pass
