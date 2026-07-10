@@ -340,7 +340,7 @@ class Utility(commands.Cog):
         )
         embed.add_field(
             name="💬  Community",
-            value="`/suggest` `/report` `/avatar` `/membercount`",
+            value="`/suggest` `/report` `/avatar` `/membercount` `/invites`",
             inline=False,
         )
         embed.add_field(
@@ -350,8 +350,8 @@ class Utility(commands.Cog):
         )
         embed.add_field(
             name="🛡️  Staff",
-            value="*Staff commands (`/ban`, `/kick`, `/warn`, `/purge`, `/announce`, `/poll`, "
-                  "`/giveaway`, `/gamepanel`, `/shop-add`…) only appear in the `/` menu "
+            value="*Staff commands (`/ban`, `/softban`, `/kick`, `/warn`, `/cases`, `/purge`, `/announce`, "
+                  "`/poll`, `/giveaway`, `/gamepanel`, `/shop-add`…) only appear in the `/` menu "
                   "if your role has the matching permissions.*",
             inline=False,
         )

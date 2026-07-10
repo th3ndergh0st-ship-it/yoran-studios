@@ -55,6 +55,7 @@ class Yoran(commands.Bot):
             "cogs.logs",
             "cogs.counting",
             "cogs.levels",
+            "cogs.invites",
         ]
         for ext in extensions:
             await self.load_extension(ext)

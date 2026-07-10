@@ -232,17 +232,55 @@ class Economy(commands.Cog):
             embed=self._lb_embed(interaction, "🏆  Level Leaderboard", "Ranked by level and XP", lines)
         )
 
-    @leaderboard.command(name="messages", description="Top members by messages sent")
-    async def leaderboard_messages(self, interaction: discord.Interaction):
+    lb_messages = app_commands.Group(name="messages", description="Message leaderboards", parent=leaderboard)
+
+    async def _send_message_board(self, interaction: discord.Interaction, field: str, key_field: str | None,
+                                  current_key: str | None, title: str, footer: str):
         from cogs.levels import get_guild_stats
         stats = get_guild_stats(interaction.guild.id)
-        ranked = sorted(stats.items(), key=lambda kv: kv[1].get("messages", 0), reverse=True)[:10]
+
+        def value_of(u: dict) -> int:
+            # daily/weekly buckets only count if their period key is current
+            if key_field and u.get(key_field) != current_key:
+                return 0
+            return u.get(field, 0)
+
+        ranked = sorted(stats.items(), key=lambda kv: value_of(kv[1]), reverse=True)
+        ranked = [(uid, u) for uid, u in ranked if value_of(u) > 0][:10]
         lines = [
-            f"{self._lb_prefix(i)}  {self._lb_name(interaction, uid)} — `{u.get('messages', 0):,}` messages"
+            f"{self._lb_prefix(i)}  {self._lb_name(interaction, uid)} — `{value_of(u):,}` messages"
             for i, (uid, u) in enumerate(ranked)
         ]
+        await interaction.response.send_message(embed=self._lb_embed(interaction, title, footer, lines))
+
+    @lb_messages.command(name="alltime", description="Top members by messages sent (all time)")
+    async def leaderboard_messages_alltime(self, interaction: discord.Interaction):
+        await self._send_message_board(interaction, "messages", None, None,
+                                       "🏆  Message Leaderboard — All Time", "Ranked by total messages sent")
+
+    @lb_messages.command(name="weekly", description="Top members by messages sent this week")
+    async def leaderboard_messages_weekly(self, interaction: discord.Interaction):
+        from cogs.levels import current_week_key
+        await self._send_message_board(interaction, "messages_week", "week_key", current_week_key(),
+                                       "🏆  Message Leaderboard — This Week", "Resets every Monday (UTC)")
+
+    @lb_messages.command(name="daily", description="Top members by messages sent today")
+    async def leaderboard_messages_daily(self, interaction: discord.Interaction):
+        from cogs.levels import current_day_key
+        await self._send_message_board(interaction, "messages_day", "day_key", current_day_key(),
+                                       "🏆  Message Leaderboard — Today", "Resets daily at midnight UTC")
+
+    @leaderboard.command(name="invites", description="Top members by invites")
+    async def leaderboard_invites(self, interaction: discord.Interaction):
+        from cogs.invites import get_invite_counts
+        counts = get_invite_counts(interaction.guild.id)
+        ranked = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:10]
+        lines = [
+            f"{self._lb_prefix(i)}  {self._lb_name(interaction, uid)} — `{c:,}` invites"
+            for i, (uid, c) in enumerate(ranked)
+        ]
         await interaction.response.send_message(
-            embed=self._lb_embed(interaction, "🏆  Message Leaderboard", "Ranked by messages sent", lines)
+            embed=self._lb_embed(interaction, "🏆  Invite Leaderboard", "Ranked by members invited", lines)
         )
 
     # ── Earning ──────────────────────────────────────────────────────────────────

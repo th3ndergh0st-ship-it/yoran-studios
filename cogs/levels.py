@@ -2,6 +2,7 @@ import json
 import os
 import random
 import time
+from datetime import datetime, timezone
 
 import discord
 from discord import app_commands
@@ -49,6 +50,15 @@ def get_guild_stats(guild_id: int) -> dict:
     """Public accessor for other cogs (e.g. the unified /leaderboard):
     returns {user_id: {"xp", "level", "messages", ...}} for a guild."""
     return _load().get(str(guild_id), {})
+
+
+def current_day_key() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def current_week_key() -> str:
+    iso = datetime.now(timezone.utc).isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
 
 
 STUDIOS_GUILD_ID = 1523445628204482620
@@ -122,8 +132,15 @@ class Levels(commands.Cog):
         guild_data = data.setdefault(str(message.guild.id), {})
         user = guild_data.setdefault(str(message.author.id), {"xp": 0, "level": 0, "last_xp": 0, "messages": 0})
 
-        # every message counts toward the message leaderboard...
+        # every message counts toward the message leaderboards...
         user["messages"] = user.get("messages", 0) + 1
+        day, week = current_day_key(), current_week_key()
+        if user.get("day_key") != day:
+            user["day_key"], user["messages_day"] = day, 0
+        if user.get("week_key") != week:
+            user["week_key"], user["messages_week"] = week, 0
+        user["messages_day"] = user.get("messages_day", 0) + 1
+        user["messages_week"] = user.get("messages_week", 0) + 1
 
         now = time.time()
         if now - user.get("last_xp", 0) < XP_COOLDOWN:

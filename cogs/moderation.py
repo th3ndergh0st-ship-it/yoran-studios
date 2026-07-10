@@ -27,6 +27,36 @@ def _footer(bot: commands.Bot) -> dict:
     return {"text": "Yoran  •  Moderation", "icon_url": bot.user.display_avatar.url}
 
 
+CASE_EMOJI = {"warn": "⚠️", "timeout": "🔇", "untimeout": "🔊", "kick": "👢",
+              "softban": "🧹", "ban": "🔨", "unban": "✅"}
+
+
+def record_case(guild_id: int, user_id: int, case_type: str, moderator_id: int, reason: str):
+    """Append an entry to the member's moderation case history."""
+    path = storage.path("cases.json")
+    data = {}
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            data = json.load(f)
+    data.setdefault(str(guild_id), {}).setdefault(str(user_id), []).append({
+        "type": case_type,
+        "reason": reason,
+        "moderator_id": str(moderator_id),
+        "timestamp": discord.utils.utcnow().isoformat(),
+    })
+    os.makedirs(storage.DATA_DIR, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def get_cases(guild_id: int, user_id: int) -> list[dict]:
+    path = storage.path("cases.json")
+    if not os.path.exists(path):
+        return []
+    with open(path, "r") as f:
+        return json.load(f).get(str(guild_id), {}).get(str(user_id), [])
+
+
 # ── Modals ────────────────────────────────────────────────────────────────────
 
 class BanModal(discord.ui.Modal, title="🔨 Ban Member"):
@@ -58,6 +88,7 @@ class BanModal(discord.ui.Modal, title="🔨 Ban Member"):
         except Exception:
             pass
         await member.ban(reason=f"{interaction.user} — {reason}")
+        record_case(interaction.guild.id, member.id, "ban", interaction.user.id, reason)
         embed = discord.Embed(title="🔨  Member Banned", color=ERROR)
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="👤  Member", value=f"{member.mention}\n`{member.id}`", inline=True)
@@ -97,10 +128,57 @@ class KickModal(discord.ui.Modal, title="👢 Kick Member"):
         except Exception:
             pass
         await member.kick(reason=f"{interaction.user} — {reason}")
+        record_case(interaction.guild.id, member.id, "kick", interaction.user.id, reason)
         embed = discord.Embed(title="👢  Member Kicked", color=WARNING)
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="👤  Member", value=f"{member.mention}\n`{member.id}`", inline=True)
         embed.add_field(name="🛡️  Moderator", value=interaction.user.mention, inline=True)
+        embed.add_field(name="📋  Reason", value=reason, inline=False)
+        embed.set_footer(**_footer(self.bot))
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+
+
+class SoftbanModal(discord.ui.Modal, title="🧹 Softban Member"):
+    reason = discord.ui.TextInput(
+        label="Reason",
+        placeholder="Why are you softbanning this member?",
+        style=discord.TextStyle.paragraph,
+        max_length=500,
+    )
+
+    def __init__(self, bot, member: discord.Member):
+        super().__init__()
+        self.bot = bot
+        self.member = member
+
+    async def on_submit(self, interaction: discord.Interaction):
+        member, reason = self.member, self.reason.value
+        if member.top_role >= interaction.user.top_role:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description="❌ You cannot softban someone with an equal or higher role.", color=ERROR),
+                ephemeral=True,
+            )
+        try:
+            await member.send(embed=discord.Embed(
+                title="🧹  You have been softbanned",
+                description=(
+                    f"**Server:** {interaction.guild.name}\n**Reason:** {reason}\n\n"
+                    "A softban is a kick that also removes your recent messages — you may rejoin with a new invite."
+                ),
+                color=WARNING,
+            ))
+        except Exception:
+            pass
+        # ban to purge the last 24h of messages, then unban right away
+        await interaction.guild.ban(member, reason=f"Softban by {interaction.user} — {reason}", delete_message_seconds=86400)
+        await interaction.guild.unban(member, reason="Softban release")
+        record_case(interaction.guild.id, member.id, "softban", interaction.user.id, reason)
+        embed = discord.Embed(title="🧹  Member Softbanned", color=WARNING)
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.add_field(name="👤  Member", value=f"{member.mention}\n`{member.id}`", inline=True)
+        embed.add_field(name="🛡️  Moderator", value=interaction.user.mention, inline=True)
+        embed.add_field(name="🗑️  Messages", value="Last 24h deleted", inline=True)
         embed.add_field(name="📋  Reason", value=reason, inline=False)
         embed.set_footer(**_footer(self.bot))
         embed.timestamp = discord.utils.utcnow()
@@ -130,6 +208,7 @@ class WarnModal(discord.ui.Modal, title="⚠️ Warn Member"):
             "timestamp": discord.utils.utcnow().isoformat(),
         })
         _save_warns(data)
+        record_case(interaction.guild.id, member.id, "warn", interaction.user.id, reason)
         count = len(data[gid][uid])
         try:
             await member.send(embed=discord.Embed(
@@ -185,6 +264,7 @@ class TimeoutModal(discord.ui.Modal, title="🔇 Timeout Member"):
                 ephemeral=True,
             )
         await member.timeout(timedelta(minutes=mins), reason=f"{interaction.user} — {reason}")
+        record_case(interaction.guild.id, member.id, "timeout", interaction.user.id, f"{mins} min — {reason}")
         embed = discord.Embed(title="🔇  Member Timed Out", color=WARNING)
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="👤  Member", value=f"{member.mention}\n`{member.id}`", inline=True)
@@ -228,6 +308,39 @@ class Moderation(commands.Cog):
     async def kick(self, interaction: discord.Interaction, member: discord.Member):
         await interaction.response.send_modal(KickModal(self.bot, member))
 
+    @app_commands.command(name="softban", description="Kick a member and delete their last 24h of messages")
+    @app_commands.default_permissions(ban_members=True)
+    @app_commands.describe(member="Member to softban")
+    @is_mod()
+    async def softban(self, interaction: discord.Interaction, member: discord.Member):
+        await interaction.response.send_modal(SoftbanModal(self.bot, member))
+
+    @app_commands.command(name="cases", description="View a member's full moderation history")
+    @app_commands.default_permissions(moderate_members=True)
+    @app_commands.describe(member="Member to look up")
+    @is_support()
+    async def cases(self, interaction: discord.Interaction, member: discord.Member):
+        entries = get_cases(interaction.guild.id, member.id)
+        embed = discord.Embed(
+            title=f"📁  Mod Cases — {member.display_name}",
+            color=WARNING if entries else SUCCESS,
+        )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        if not entries:
+            embed.description = "✅ This member has a clean record."
+        else:
+            for i, case in enumerate(entries[-10:], max(1, len(entries) - 9)):
+                emoji = CASE_EMOJI.get(case["type"], "📋")
+                mod = interaction.guild.get_member(int(case["moderator_id"]))
+                when = case.get("timestamp", "")[:16].replace("T", " ")
+                embed.add_field(
+                    name=f"{emoji} Case #{i} — {case['type'].upper()}",
+                    value=f"**Reason:** {case['reason']}\n**By:** {mod.mention if mod else case['moderator_id']}  ·  `{when} UTC`",
+                    inline=False,
+                )
+            embed.set_footer(text=f"Total: {len(entries)} case(s) — showing the last 10  •  Yoran Moderation")
+        await interaction.response.send_message(embed=embed)
+
     @app_commands.command(name="unban", description="Unban a user by their ID")
     @app_commands.default_permissions(ban_members=True)
     @app_commands.describe(user_id="Discord user ID to unban", reason="Reason for unbanning")
@@ -237,6 +350,7 @@ class Moderation(commands.Cog):
         try:
             user = await self.bot.fetch_user(int(user_id))
             await interaction.guild.unban(user, reason=f"{interaction.user} — {reason}")
+            record_case(interaction.guild.id, user.id, "unban", interaction.user.id, reason)
         except Exception:
             return await interaction.followup.send(
                 embed=discord.Embed(description="❌ User not found or not banned.", color=ERROR), ephemeral=True
@@ -267,6 +381,7 @@ class Moderation(commands.Cog):
                 ephemeral=True,
             )
         await member.timeout(None)
+        record_case(interaction.guild.id, member.id, "untimeout", interaction.user.id, "Timeout removed")
         embed = discord.Embed(title="🔊  Timeout Removed", color=SUCCESS)
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="👤  Member", value=member.mention, inline=True)
