@@ -191,22 +191,46 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"✅ {interaction.user.mention} sent {_fmt(amount)} to {member.mention}!", color=SUCCESS)
         )
 
-    @app_commands.command(name="leaderboard", description="View the richest members in this server")
-    async def leaderboard(self, interaction: discord.Interaction):
-        top = econ.get_leaderboard(interaction.guild.id, 10)
-        embed = discord.Embed(title="🏆  Coin Leaderboard", color=GOLD, description="Ranked by net worth (wallet + bank).")
-        if not top:
-            embed.description = "No one has earned any coins yet."
+    @app_commands.command(name="leaderboard", description="Server leaderboards: coins, levels, or messages")
+    @app_commands.describe(type="What to rank members by (default: coins)")
+    @app_commands.choices(type=[
+        app_commands.Choice(name="🪙 Coins", value="coins"),
+        app_commands.Choice(name="🏅 Levels", value="levels"),
+        app_commands.Choice(name="💬 Messages", value="messages"),
+    ])
+    async def leaderboard(self, interaction: discord.Interaction, type: app_commands.Choice[str] = None):
+        kind = type.value if type else "coins"
+        medals = ["🥇", "🥈", "🥉"]
+
+        def line_prefix(i: int) -> str:
+            return medals[i] if i < 3 else f"`#{i + 1}`"
+
+        def display(uid: str) -> str:
+            member = interaction.guild.get_member(int(uid))
+            return member.mention if member else f"<@{uid}>"
+
+        lines = []
+        if kind == "coins":
+            title, footer = "🏆  Coin Leaderboard", "Ranked by net worth (wallet + bank)"
+            for i, (uid, wallet, bank) in enumerate(econ.get_leaderboard(interaction.guild.id, 10)):
+                lines.append(f"{line_prefix(i)}  {display(uid)} — {_fmt(wallet + bank)}")
         else:
-            medals = ["🥇", "🥈", "🥉"]
-            lines = []
-            for i, (uid, wallet, bank) in enumerate(top):
-                member = interaction.guild.get_member(int(uid))
-                name = member.mention if member else f"<@{uid}>"
-                prefix = medals[i] if i < 3 else f"`#{i + 1}`"
-                lines.append(f"{prefix}  {name} — {_fmt(wallet + bank)}")
-            embed.description = "\n".join(lines)
-        embed.set_footer(text="Yoran Studios  •  Economy")
+            from cogs.levels import get_guild_stats
+            stats = get_guild_stats(interaction.guild.id)
+            if kind == "levels":
+                title, footer = "🏆  Level Leaderboard", "Ranked by level and XP"
+                ranked = sorted(stats.items(), key=lambda kv: (kv[1].get("level", 0), kv[1].get("xp", 0)), reverse=True)[:10]
+                for i, (uid, u) in enumerate(ranked):
+                    lines.append(f"{line_prefix(i)}  {display(uid)} — Level **{u.get('level', 0)}** (`{u.get('xp', 0):,}` xp)")
+            else:
+                title, footer = "🏆  Message Leaderboard", "Ranked by messages sent"
+                ranked = sorted(stats.items(), key=lambda kv: kv[1].get("messages", 0), reverse=True)[:10]
+                for i, (uid, u) in enumerate(ranked):
+                    lines.append(f"{line_prefix(i)}  {display(uid)} — `{u.get('messages', 0):,}` messages")
+
+        embed = discord.Embed(title=title, color=GOLD)
+        embed.description = "\n".join(lines) if lines else "Nothing to rank yet — get active!"
+        embed.set_footer(text=f"Yoran Studios  •  {footer}")
         await interaction.response.send_message(embed=embed)
 
     # ── Earning ──────────────────────────────────────────────────────────────────

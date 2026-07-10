@@ -45,6 +45,12 @@ def _save(data: dict):
         json.dump(data, f, indent=2)
 
 
+def get_guild_stats(guild_id: int) -> dict:
+    """Public accessor for other cogs (e.g. the unified /leaderboard):
+    returns {user_id: {"xp", "level", "messages", ...}} for a guild."""
+    return _load().get(str(guild_id), {})
+
+
 class Levels(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -60,12 +66,17 @@ class Levels(commands.Cog):
 
         data = _load()
         guild_data = data.setdefault(str(message.guild.id), {})
-        user = guild_data.setdefault(str(message.author.id), {"xp": 0, "level": 0, "last_xp": 0})
+        user = guild_data.setdefault(str(message.author.id), {"xp": 0, "level": 0, "last_xp": 0, "messages": 0})
+
+        # every message counts toward the message leaderboard...
+        user["messages"] = user.get("messages", 0) + 1
 
         now = time.time()
         if now - user.get("last_xp", 0) < XP_COOLDOWN:
+            _save(data)
             return
 
+        # ...but XP stays cooldown-gated so spam doesn't level you up
         user["xp"] += random.randint(*XP_PER_MESSAGE)
         user["last_xp"] = now
 
@@ -149,6 +160,7 @@ class Levels(commands.Cog):
         embed.add_field(name="🏅 Level", value=f"`{level}`", inline=True)
         embed.add_field(name="⭐ Rank", value=f"`#{position}`", inline=True)
         embed.add_field(name="✨ XP", value=f"`{xp:,} / {needed:,}`", inline=True)
+        embed.add_field(name="💬 Messages", value=f"`{user.get('messages', 0):,}`", inline=True)
         embed.add_field(name="Progress", value=f"`{bar}`", inline=False)
         next_milestone = next((lvl for lvl in sorted(LEVEL_ROLES) if lvl > level), None)
         if next_milestone:
