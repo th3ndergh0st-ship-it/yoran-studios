@@ -191,47 +191,59 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"✅ {interaction.user.mention} sent {_fmt(amount)} to {member.mention}!", color=SUCCESS)
         )
 
-    @app_commands.command(name="leaderboard", description="Server leaderboards: coins, levels, or messages")
-    @app_commands.describe(type="What to rank members by (default: coins)")
-    @app_commands.choices(type=[
-        app_commands.Choice(name="🪙 Coins", value="coins"),
-        app_commands.Choice(name="🏅 Levels", value="levels"),
-        app_commands.Choice(name="💬 Messages", value="messages"),
-    ])
-    async def leaderboard(self, interaction: discord.Interaction, type: app_commands.Choice[str] = None):
-        kind = type.value if type else "coins"
-        medals = ["🥇", "🥈", "🥉"]
+    leaderboard = app_commands.Group(name="leaderboard", description="Server leaderboards")
 
-        def line_prefix(i: int) -> str:
-            return medals[i] if i < 3 else f"`#{i + 1}`"
-
-        def display(uid: str) -> str:
-            member = interaction.guild.get_member(int(uid))
-            return member.mention if member else f"<@{uid}>"
-
-        lines = []
-        if kind == "coins":
-            title, footer = "🏆  Coin Leaderboard", "Ranked by net worth (wallet + bank)"
-            for i, (uid, wallet, bank) in enumerate(econ.get_leaderboard(interaction.guild.id, 10)):
-                lines.append(f"{line_prefix(i)}  {display(uid)} — {_fmt(wallet + bank)}")
-        else:
-            from cogs.levels import get_guild_stats
-            stats = get_guild_stats(interaction.guild.id)
-            if kind == "levels":
-                title, footer = "🏆  Level Leaderboard", "Ranked by level and XP"
-                ranked = sorted(stats.items(), key=lambda kv: (kv[1].get("level", 0), kv[1].get("xp", 0)), reverse=True)[:10]
-                for i, (uid, u) in enumerate(ranked):
-                    lines.append(f"{line_prefix(i)}  {display(uid)} — Level **{u.get('level', 0)}** (`{u.get('xp', 0):,}` xp)")
-            else:
-                title, footer = "🏆  Message Leaderboard", "Ranked by messages sent"
-                ranked = sorted(stats.items(), key=lambda kv: kv[1].get("messages", 0), reverse=True)[:10]
-                for i, (uid, u) in enumerate(ranked):
-                    lines.append(f"{line_prefix(i)}  {display(uid)} — `{u.get('messages', 0):,}` messages")
-
+    def _lb_embed(self, interaction: discord.Interaction, title: str, footer: str, lines: list[str]) -> discord.Embed:
         embed = discord.Embed(title=title, color=GOLD)
         embed.description = "\n".join(lines) if lines else "Nothing to rank yet — get active!"
         embed.set_footer(text=f"Yoran Studios  •  {footer}")
-        await interaction.response.send_message(embed=embed)
+        return embed
+
+    @staticmethod
+    def _lb_prefix(i: int) -> str:
+        medals = ["🥇", "🥈", "🥉"]
+        return medals[i] if i < 3 else f"`#{i + 1}`"
+
+    @staticmethod
+    def _lb_name(interaction: discord.Interaction, uid: str) -> str:
+        member = interaction.guild.get_member(int(uid))
+        return member.mention if member else f"<@{uid}>"
+
+    @leaderboard.command(name="coins", description="Top members by net worth (wallet + bank)")
+    async def leaderboard_coins(self, interaction: discord.Interaction):
+        lines = [
+            f"{self._lb_prefix(i)}  {self._lb_name(interaction, uid)} — {_fmt(wallet + bank)}"
+            for i, (uid, wallet, bank) in enumerate(econ.get_leaderboard(interaction.guild.id, 10))
+        ]
+        await interaction.response.send_message(
+            embed=self._lb_embed(interaction, "🏆  Coin Leaderboard", "Ranked by net worth (wallet + bank)", lines)
+        )
+
+    @leaderboard.command(name="levels", description="Top members by level and XP")
+    async def leaderboard_levels(self, interaction: discord.Interaction):
+        from cogs.levels import get_guild_stats
+        stats = get_guild_stats(interaction.guild.id)
+        ranked = sorted(stats.items(), key=lambda kv: (kv[1].get("level", 0), kv[1].get("xp", 0)), reverse=True)[:10]
+        lines = [
+            f"{self._lb_prefix(i)}  {self._lb_name(interaction, uid)} — Level **{u.get('level', 0)}** (`{u.get('xp', 0):,}` xp)"
+            for i, (uid, u) in enumerate(ranked)
+        ]
+        await interaction.response.send_message(
+            embed=self._lb_embed(interaction, "🏆  Level Leaderboard", "Ranked by level and XP", lines)
+        )
+
+    @leaderboard.command(name="messages", description="Top members by messages sent")
+    async def leaderboard_messages(self, interaction: discord.Interaction):
+        from cogs.levels import get_guild_stats
+        stats = get_guild_stats(interaction.guild.id)
+        ranked = sorted(stats.items(), key=lambda kv: kv[1].get("messages", 0), reverse=True)[:10]
+        lines = [
+            f"{self._lb_prefix(i)}  {self._lb_name(interaction, uid)} — `{u.get('messages', 0):,}` messages"
+            for i, (uid, u) in enumerate(ranked)
+        ]
+        await interaction.response.send_message(
+            embed=self._lb_embed(interaction, "🏆  Message Leaderboard", "Ranked by messages sent", lines)
+        )
 
     # ── Earning ──────────────────────────────────────────────────────────────────
 

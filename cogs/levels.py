@@ -51,9 +51,63 @@ def get_guild_stats(guild_id: int) -> dict:
     return _load().get(str(guild_id), {})
 
 
+STUDIOS_GUILD_ID = 1523445628204482620
+BACKFILL_KEY = "backfilled_guilds"
+
+
 class Levels(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._backfill_started = False
+
+    # ── One-time history backfill ────────────────────────────────────────────────
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        # Seed message counts from channel history once, so the message
+        # leaderboard doesn't start from zero. The marker lives in the data
+        # file (on the persistent volume), so this never runs twice.
+        if self._backfill_started:
+            return
+        self._backfill_started = True
+        guild = self.bot.get_guild(STUDIOS_GUILD_ID)
+        if guild is None:
+            return
+        if str(guild.id) in _load().get(BACKFILL_KEY, []):
+            return
+        self.bot.loop.create_task(self._backfill_guild(guild))
+
+    async def _backfill_guild(self, guild: discord.Guild):
+        print(f"[Levels] Backfilling message counts for {guild.name}...", flush=True)
+        counts: dict[str, int] = {}
+        channels_done = 0
+        for channel in guild.text_channels:
+            if channel.id in NO_XP_CHANNEL_IDS:
+                continue
+            try:
+                async for msg in channel.history(limit=None):
+                    if msg.author.bot:
+                        continue
+                    uid = str(msg.author.id)
+                    counts[uid] = counts.get(uid, 0) + 1
+                channels_done += 1
+            except (discord.Forbidden, discord.HTTPException):
+                continue
+
+        data = _load()
+        guild_data = data.setdefault(str(guild.id), {})
+        for uid, scanned in counts.items():
+            user = guild_data.setdefault(uid, {"xp": 0, "level": 0, "last_xp": 0, "messages": 0})
+            # history is the source of truth; keep whichever is higher in case
+            # the live counter already ticked during the scan
+            user["messages"] = max(user.get("messages", 0), scanned)
+        data.setdefault(BACKFILL_KEY, []).append(str(guild.id))
+        _save(data)
+        print(
+            f"[Levels] Backfill done for {guild.name}: {sum(counts.values()):,} messages "
+            f"across {channels_done} channels from {len(counts)} members",
+            flush=True,
+        )
 
     # ── XP gain ──────────────────────────────────────────────────────────────────
 
