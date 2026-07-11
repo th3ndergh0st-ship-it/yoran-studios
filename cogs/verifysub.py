@@ -75,13 +75,12 @@ async def _ensure_reward_role(guild: discord.Guild) -> discord.Role | None:
 
 
 async def _finish_review(message: discord.Message, approved: bool, reviewer: discord.Member, note: str = ""):
-    embed = message.embeds[0]
-    embed.color = SUCCESS if approved else ERROR
-    status = f"✅ Approved by {reviewer.mention}" if approved else f"❌ Declined by {reviewer.mention}"
-    if note:
-        status += f"\n**Note:** {note}"
-    embed.add_field(name="Status", value=status, inline=False)
-    await message.edit(embed=embed, view=None)
+    # reviewed requests are removed so the review channel never clogs up;
+    # the reviewer gets an ephemeral confirmation and the member gets a DM
+    try:
+        await message.delete()
+    except discord.HTTPException:
+        pass
 
 
 def _is_reviewer(member: discord.Member) -> bool:
