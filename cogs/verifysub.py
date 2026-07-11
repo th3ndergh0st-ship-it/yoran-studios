@@ -339,7 +339,6 @@ class VerifySub(commands.Cog):
             color=PRIMARY,
         )
         embed.add_field(name="👤 Member", value=f"{interaction.user.mention}\n`{interaction.user.id}`", inline=True)
-        embed.add_field(name="🎁 Reward", value=REWARD_ROLE_NAME, inline=True)
         embed.set_image(url=f"attachment://{file.filename}")
         embed.set_footer(text=f"UID:{interaction.user.id}")
         embed.timestamp = discord.utils.utcnow()
