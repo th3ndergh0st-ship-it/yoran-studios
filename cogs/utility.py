@@ -340,7 +340,7 @@ class Utility(commands.Cog):
         )
         embed.add_field(
             name="💬  Community",
-            value="`/suggest` `/report` `/avatar` `/membercount` `/invites`",
+            value="`/suggest` `/report` `/avatar` `/membercount` `/invites` `/verifysub`",
             inline=False,
         )
         embed.add_field(
