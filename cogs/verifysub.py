@@ -7,7 +7,6 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from config import PRIMARY, SUCCESS, ERROR
-from utils import is_admin
 import storage
 
 YT_CHANNEL_URL = "https://www.youtube.com/@YoranStudio"
@@ -295,7 +294,7 @@ class VerifySub(commands.Cog):
 
         if not submit_id or not review_id:
             return await interaction.response.send_message(
-                embed=discord.Embed(description="❌ Verification isn't set up yet — an admin must run `/setup-verifysub` first.", color=ERROR),
+                embed=discord.Embed(description="❌ Verification isn't configured on this server — contact staff.", color=ERROR),
                 ephemeral=True,
             )
         if interaction.channel_id != submit_id:
@@ -327,7 +326,7 @@ class VerifySub(commands.Cog):
         review_channel = guild.get_channel(review_id)
         if review_channel is None:
             return await interaction.response.send_message(
-                embed=discord.Embed(description="❌ The review channel no longer exists — ask an admin to re-run `/setup-verifysub`.", color=ERROR),
+                embed=discord.Embed(description="❌ The review channel no longer exists — contact staff.", color=ERROR),
                 ephemeral=True,
             )
 
@@ -354,79 +353,6 @@ class VerifySub(commands.Cog):
             ),
             ephemeral=True,
         )
-
-    @app_commands.command(name="setup-verifysub", description="Create the verify-sub channels and activate manual verification (Admin)")
-    @app_commands.default_permissions(administrator=True)
-    @is_admin()
-    async def setup_verifysub(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        guild = interaction.guild
-
-        submit = discord.utils.get(guild.text_channels, name=SUBMIT_CHANNEL_NAME)
-        if submit is None:
-            submit = await guild.create_text_channel(
-                name=SUBMIT_CHANNEL_NAME,
-                topic="Submit your YouTube subscription screenshot with /verifysub — anything else gets deleted.",
-                overwrites={
-                    guild.default_role: discord.PermissionOverwrite(
-                        view_channel=True, send_messages=True, read_message_history=True,
-                        use_application_commands=True, add_reactions=False,
-                    ),
-                    guild.me: discord.PermissionOverwrite(
-                        view_channel=True, send_messages=True, manage_messages=True, embed_links=True,
-                    ),
-                },
-                reason=f"Verify-sub setup by {interaction.user}",
-            )
-
-        review = discord.utils.get(guild.text_channels, name=REVIEW_CHANNEL_NAME)
-        if review is None:
-            review = await guild.create_text_channel(
-                name=REVIEW_CHANNEL_NAME,
-                topic="Pending YouTube subscription verifications — admins only.",
-                overwrites={
-                    guild.default_role: discord.PermissionOverwrite(view_channel=False),
-                    guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, embed_links=True, attach_files=True),
-                },
-                reason=f"Verify-sub setup by {interaction.user}",
-            )
-
-        data = _load(CONFIG_FILE)
-        g = data.setdefault(str(guild.id), {})
-        g["submit"], g["review"] = submit.id, review.id
-        g.setdefault("pending", {})
-        _save(CONFIG_FILE, data)
-
-        panel = discord.Embed(
-            title="🎬  YouTube Subscription Verification",
-            description=(
-                f"Subscribed to our YouTube channel? Claim your **{REWARD_ROLE_NAME}** role!\n"
-                f"### 🔴 [Subscribe to YoranStudio]({YT_CHANNEL_URL})\n\n"
-                "> **1.** Take a screenshot showing you're **subscribed** (make sure your account name is visible)\n"
-                "> **2.** Run `/verifysub` **in this channel** and attach the screenshot\n"
-                "> **3.** Staff will review it — you'll get the result by **DM**\n\n"
-                "⚠️ Any message typed here is deleted automatically. Only `/verifysub` works, and only in this channel."
-            ),
-            color=PRIMARY,
-        )
-        if guild.icon:
-            panel.set_thumbnail(url=guild.icon.url)
-        panel.set_footer(text=f"{guild.name}  •  YouTube Verification", icon_url=guild.icon.url if guild.icon else None)
-        await submit.send(embed=panel)
-
-        await interaction.followup.send(
-            embed=discord.Embed(
-                description=(
-                    f"✅ Manual verification is live!\n"
-                    f"> 📤 Members submit in {submit.mention}\n"
-                    f"> 📩 Requests arrive in {review.mention} (admins only)\n"
-                    f"> 🎁 Reward role: **{REWARD_ROLE_NAME}**"
-                ),
-                color=SUCCESS,
-            ),
-            ephemeral=True,
-        )
-
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(VerifySub(bot))

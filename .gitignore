@@ -10,3 +10,4 @@ data/*
 !data/membercount.json
 !data/welcome.json
 !data/counting.json
+!data/verifysub.json

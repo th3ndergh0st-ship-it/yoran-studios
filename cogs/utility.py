@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import PRIMARY, SUCCESS, ERROR, WARNING, INFO
-from utils import is_helper, is_support, SUPER_OWNER_ROLE_IDS, OWNER_ROLES
+from utils import is_helper, is_support
 
 
 # ── Modals ────────────────────────────────────────────────────────────────────
@@ -138,29 +138,6 @@ class Utility(commands.Cog):
 
 
     # ── Top-level utility ────────────────────────────────────────────────────────
-
-    @app_commands.command(name="testcommit", description="Debug: check if the latest code is deployed and what roles you have")
-    @app_commands.default_permissions(administrator=True)
-    async def testcommit(self, interaction: discord.Interaction):
-        member = interaction.user
-        guild = interaction.guild
-        is_real_owner = guild.owner_id == member.id
-        has_super_role = any(r.id in SUPER_OWNER_ROLE_IDS for r in member.roles)
-        has_owner_name = any(r.name in OWNER_ROLES for r in member.roles)
-
-        role_lines = [f"`{r.name}` — id `{r.id}`" for r in reversed(member.roles) if r.name != "@everyone"]
-
-        embed = discord.Embed(
-            title="🧪  Deploy / Role Debug",
-            description="BUILD-MARKER: 2026-07-05-v3-railway\nIf you can see this marker, Railway IS running the latest code.",
-            color=PRIMARY,
-        )
-        embed.add_field(name="👑 Real server owner?", value=str(is_real_owner), inline=True)
-        embed.add_field(name="🆔 Has SUPER_OWNER role ID?", value=str(has_super_role), inline=True)
-        embed.add_field(name="🏷️ Has an Owner-tier role name?", value=str(has_owner_name), inline=True)
-        embed.add_field(name="Your roles", value="\n".join(role_lines) or "None", inline=False)
-        embed.add_field(name="Expected SUPER_OWNER_ROLE_IDS", value=", ".join(str(i) for i in SUPER_OWNER_ROLE_IDS), inline=False)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="ping", description="Check the bot's latency")
     async def ping(self, interaction: discord.Interaction):
