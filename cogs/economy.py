@@ -15,17 +15,18 @@ DAILY_COOLDOWN = 86400
 WORK_COOLDOWN = 3600
 ROB_COOLDOWN = 7200
 CRIME_COOLDOWN = 1800
-BEG_COOLDOWN = 300
+BEG_COOLDOWN = 900
+GAMBLE_COOLDOWN = 15  # shared between /coinflip and /slots
 
 ROB_MIN_TARGET_BALANCE = 50
-ROB_SUCCESS_CHANCE = 0.45
+ROB_SUCCESS_CHANCE = 0.40
 ROB_STEAL_PCT = (0.10, 0.35)
-ROB_FINE_PCT = (0.05, 0.15)
-ROB_FINE_MIN = 20
+ROB_FINE_PCT = (0.10, 0.30)
+ROB_FINE_MIN = 50
 
 CRIME_SUCCESS_CHANCE = 0.6
 CRIME_SUCCESS_RANGE = (100, 300)
-CRIME_FAIL_RANGE = (50, 150)
+CRIME_FAIL_RANGE = (75, 225)
 
 BEG_RANGE = (5, 40)
 BEG_NOTHING_CHANCE = 0.15
@@ -421,11 +422,18 @@ class Economy(commands.Cog):
     @app_commands.describe(bet="Amount to bet", choice="Heads or tails")
     @app_commands.choices(choice=[app_commands.Choice(name="Heads", value="heads"), app_commands.Choice(name="Tails", value="tails")])
     async def coinflip(self, interaction: discord.Interaction, bet: app_commands.Range[int, 10, 1_000_000], choice: app_commands.Choice[str]):
+        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_gamble", GAMBLE_COOLDOWN)
+        if remaining > 0:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description=f"⏰ Easy, gambler — wait **{int(remaining) + 1}s** before betting again.", color=WARNING),
+                ephemeral=True,
+            )
         wallet = econ.get_balance(interaction.guild.id, interaction.user.id)
         if bet > wallet:
             return await interaction.response.send_message(
                 embed=discord.Embed(description=f"❌ You only have {_fmt(wallet)} in your wallet.", color=ERROR), ephemeral=True
             )
+        econ.set_cooldown(interaction.guild.id, interaction.user.id, "last_gamble", time.time())
         result = random.choice(["heads", "tails"])
         won = result == choice.value
         econ.add_balance(interaction.guild.id, interaction.user.id, bet if won else -bet)
@@ -442,11 +450,18 @@ class Economy(commands.Cog):
     @app_commands.command(name="slots", description="Try your luck on the slot machine")
     @app_commands.describe(bet="Amount to bet")
     async def slots(self, interaction: discord.Interaction, bet: app_commands.Range[int, 10, 1_000_000]):
+        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_gamble", GAMBLE_COOLDOWN)
+        if remaining > 0:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description=f"⏰ Easy, gambler — wait **{int(remaining) + 1}s** before betting again.", color=WARNING),
+                ephemeral=True,
+            )
         wallet = econ.get_balance(interaction.guild.id, interaction.user.id)
         if bet > wallet:
             return await interaction.response.send_message(
                 embed=discord.Embed(description=f"❌ You only have {_fmt(wallet)} in your wallet.", color=ERROR), ephemeral=True
             )
+        econ.set_cooldown(interaction.guild.id, interaction.user.id, "last_gamble", time.time())
         reels = random.choices(SLOT_SYMBOLS, weights=SLOT_WEIGHTS, k=3)
         reel_display = " | ".join(reels)
 

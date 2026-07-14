@@ -45,24 +45,8 @@ class Welcome(commands.Cog):
             embed.set_image(url=cfg["banner"])
         await channel.send(content=member.mention if cfg.get("ping") else None, embed=embed)
 
-    @commands.Cog.listener()
-    async def on_member_remove(self, member: discord.Member):
-        data = _load()
-        cfg = data.get(str(member.guild.id), {}).get("goodbye")
-        if not cfg:
-            return
-        channel = member.guild.get_channel(cfg["channel_id"])
-        if not channel:
-            return
-        embed = discord.Embed(
-            title=cfg.get("title", "Goodbye!").replace("{user}", member.display_name).replace("{server}", member.guild.name),
-            description=cfg.get("message", f"**{member.display_name}** has left.").replace("{user}", str(member)).replace("{server}", member.guild.name).replace("{count}", str(member.guild.member_count)),
-            color=int(cfg.get("color", ERROR)),
-        )
-        embed.set_thumbnail(url=member.display_avatar.url)
-        embed.set_footer(text=f"{member.guild.name}  •  {member.guild.member_count} members remaining", icon_url=member.guild.icon.url if member.guild.icon else None)
-        embed.timestamp = discord.utils.utcnow()
-        await channel.send(embed=embed)
+    # Goodbye messages intentionally removed — the welcome channel only
+    # tracks joins now (leaves would just clutter it).
 
 
 

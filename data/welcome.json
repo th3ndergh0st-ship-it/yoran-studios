@@ -7,12 +7,6 @@
       "color": 8073150,
       "banner": null,
       "ping": true
-    },
-    "goodbye": {
-      "channel_id": 1524143457726107792,
-      "title": "Goodbye!",
-      "message": "**{user}** has left {server}. We're now at {count} members.",
-      "color": 15158332
     }
   }
 }

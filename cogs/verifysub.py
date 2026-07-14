@@ -10,7 +10,10 @@ from config import PRIMARY, SUCCESS, ERROR
 import storage
 
 YT_CHANNEL_URL = "https://www.youtube.com/@YoranStudio"
-REWARD_ROLE_NAME = "⭐ Subscriber"
+# The existing "Follower" role — matched by ID so renames don't break it.
+# The bot never creates a new role for this.
+REWARD_ROLE_ID = 1526375014876713142
+REWARD_ROLE_NAME = "Follower"
 VERIFY_TTL_DAYS = 30
 
 SUBMIT_CHANNEL_NAME = "✅・verify-sub"
@@ -58,19 +61,7 @@ def _uid_from_review_message(message: discord.Message) -> int | None:
 
 
 async def _ensure_reward_role(guild: discord.Guild) -> discord.Role | None:
-    role = discord.utils.get(guild.roles, name=REWARD_ROLE_NAME)
-    if role is None:
-        try:
-            role = await guild.create_role(
-                name=REWARD_ROLE_NAME,
-                colour=discord.Colour.from_rgb(255, 0, 0),
-                hoist=True,
-                mentionable=False,
-                reason="Auto-created YouTube subscriber reward role",
-            )
-        except discord.HTTPException:
-            return None
-    return role
+    return guild.get_role(REWARD_ROLE_ID) or discord.utils.get(guild.roles, name=REWARD_ROLE_NAME)
 
 
 async def _finish_review(message: discord.Message, approved: bool, reviewer: discord.Member, note: str = ""):
@@ -150,14 +141,18 @@ class SubReviewView(discord.ui.View):
                 )
 
         role = await _ensure_reward_role(guild)
-        if role:
-            try:
-                await member.add_roles(role, reason=f"YouTube sub verified manually by {interaction.user}")
-            except discord.HTTPException:
-                return await interaction.response.send_message(
-                    embed=discord.Embed(description="❌ I couldn't assign the reward role — check my role position.", color=ERROR),
-                    ephemeral=True,
-                )
+        if role is None:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description="❌ The **Follower** role no longer exists — restore it before approving.", color=ERROR),
+                ephemeral=True,
+            )
+        try:
+            await member.add_roles(role, reason=f"YouTube sub verified manually by {interaction.user}")
+        except discord.HTTPException:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description="❌ I couldn't assign the reward role — check my role position.", color=ERROR),
+                ephemeral=True,
+            )
 
         verified = _load(VERIFIED_FILE)
         verified[str(uid)] = time.time()
@@ -237,7 +232,7 @@ class VerifySub(commands.Cog):
             removed = False
             for guild in self.bot.guilds:
                 member = guild.get_member(int(user_id))
-                role = discord.utils.get(guild.roles, name=REWARD_ROLE_NAME)
+                role = guild.get_role(REWARD_ROLE_ID) or discord.utils.get(guild.roles, name=REWARD_ROLE_NAME)
                 if member and role and role in member.roles:
                     try:
                         await member.remove_roles(role, reason="YouTube verification expired (re-verify required)")
@@ -308,7 +303,7 @@ class VerifySub(commands.Cog):
                 ephemeral=True,
             )
 
-        role = discord.utils.get(guild.roles, name=REWARD_ROLE_NAME)
+        role = guild.get_role(REWARD_ROLE_ID) or discord.utils.get(guild.roles, name=REWARD_ROLE_NAME)
         if role and role in interaction.user.roles:
             return await interaction.response.send_message(
                 embed=discord.Embed(description=f"✅ You already have the **{role.name}** role!", color=SUCCESS),

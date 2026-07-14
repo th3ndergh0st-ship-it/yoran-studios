@@ -1,11 +1,14 @@
 import random
+import time
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from config import PRIMARY, SUCCESS, ERROR, INFO
+from config import PRIMARY, SUCCESS, ERROR, INFO, WARNING
 import economy_data as econ
+
+TRIVIA_COOLDOWN = 300  # coins are involved, so trivia can't be spammed
 
 TIPS = [
     "Use `TweenService` instead of manually changing properties every frame — it's smoother and cheaper on performance.",
@@ -150,6 +153,15 @@ class Education(commands.Cog):
 
     @app_commands.command(name="trivia", description="Answer a Roblox/Lua trivia question for coins")
     async def trivia(self, interaction: discord.Interaction):
+        last = econ.get_cooldown(interaction.guild.id, interaction.user.id, "last_trivia")
+        remaining = TRIVIA_COOLDOWN - (time.time() - last)
+        if remaining > 0:
+            m, s = divmod(int(remaining), 60)
+            return await interaction.response.send_message(
+                embed=discord.Embed(description=f"⏰ One trivia at a time! Try again in **{m}m {s}s**.", color=WARNING),
+                ephemeral=True,
+            )
+        econ.set_cooldown(interaction.guild.id, interaction.user.id, "last_trivia", time.time())
         question = random.choice(TRIVIA)
         embed = discord.Embed(title="🧠  Trivia Time!", description=question["question"], color=PRIMARY)
         embed.set_footer(text="You have 30 seconds to answer — correct answers earn coins!")

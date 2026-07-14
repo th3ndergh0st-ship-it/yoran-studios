@@ -139,6 +139,47 @@ class Utility(commands.Cog):
 
     # ── Top-level utility ────────────────────────────────────────────────────────
 
+    @app_commands.command(name="kingofyapping", description="Reveals the server's undisputed King of Yapping 👑")
+    async def kingofyapping(self, interaction: discord.Interaction):
+        from cogs.levels import get_guild_stats
+        stats = get_guild_stats(interaction.guild.id)
+        ranked = sorted(
+            ((uid, u) for uid, u in stats.items() if u.get("messages", 0) > 0),
+            key=lambda kv: kv[1].get("messages", 0),
+            reverse=True,
+        )
+        if not ranked:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description="🤫 Suspiciously quiet in here... no yappers detected yet.", color=PRIMARY)
+            )
+
+        uid, top = ranked[0]
+        king = interaction.guild.get_member(int(uid))
+        king_name = king.mention if king else f"<@{uid}>"
+        count = top.get("messages", 0)
+
+        embed = discord.Embed(
+            title="👑  The King of Yapping",
+            description=(
+                f"All rise for {king_name}! 🗣️\n\n"
+                f"With a staggering **{count:,} messages**, nobody in **{interaction.guild.name}** "
+                "talks more. Certified yapper. Keyboard warriors fear them. Silence has never met them."
+            ),
+            color=0xF1C40F,
+        )
+        if king:
+            embed.set_thumbnail(url=king.display_avatar.url)
+        if len(ranked) > 1:
+            r_uid, r = ranked[1]
+            runner = interaction.guild.get_member(int(r_uid))
+            embed.add_field(
+                name="👀 Closest challenger",
+                value=f"{runner.mention if runner else f'<@{r_uid}>'} — `{r.get('messages', 0):,}` messages... catching up?",
+                inline=False,
+            )
+        embed.set_footer(text="Yoran Studios  •  All in good fun 💜")
+        await interaction.response.send_message(embed=embed)
+
     @app_commands.command(name="ping", description="Check the bot's latency")
     async def ping(self, interaction: discord.Interaction):
         ws = round(self.bot.latency * 1000)
@@ -317,7 +358,7 @@ class Utility(commands.Cog):
         )
         embed.add_field(
             name="💬  Community",
-            value="`/suggest` `/report` `/avatar` `/membercount` `/invites` `/verifysub`",
+            value="`/suggest` `/report` `/avatar` `/membercount` `/invites` `/verifysub` `/kingofyapping`",
             inline=False,
         )
         embed.add_field(

@@ -1,4 +1,5 @@
 import asyncio
+import time
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -14,19 +15,37 @@ storage.bootstrap()
 # refused everywhere else — the Yoran Shop server has its own separate bot.
 STUDIOS_GUILD_ID = 1523445628204482620
 
+# Universal per-user cooldown between ANY two slash commands, so nobody can
+# flood the bot with rapid-fire commands.
+GLOBAL_COMMAND_COOLDOWN = 2.0
+
 
 class StudiosOnlyTree(app_commands.CommandTree):
+    _last_use: dict[int, float] = {}
+
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.guild is None or interaction.guild.id == STUDIOS_GUILD_ID:
-            return True
-        await interaction.response.send_message(
-            embed=discord.Embed(
-                description="❌ This bot is exclusive to the **Yoran Studios** server.",
-                color=0xE74C3C,
-            ),
-            ephemeral=True,
-        )
-        return False
+        if interaction.guild is not None and interaction.guild.id != STUDIOS_GUILD_ID:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    description="❌ This bot is exclusive to the **Yoran Studios** server.",
+                    color=0xE74C3C,
+                ),
+                ephemeral=True,
+            )
+            return False
+
+        now = time.monotonic()
+        if now - self._last_use.get(interaction.user.id, 0.0) < GLOBAL_COMMAND_COOLDOWN:
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    description="⏳ Slow down! Wait a couple of seconds between commands.",
+                    color=0xF39C12,
+                ),
+                ephemeral=True,
+            )
+            return False
+        self._last_use[interaction.user.id] = now
+        return True
 
 
 class Yoran(commands.Bot):
