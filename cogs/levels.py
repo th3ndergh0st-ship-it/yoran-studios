@@ -196,17 +196,14 @@ class Levels(commands.Cog):
             pass
 
     async def _sync_level_role(self, member: discord.Member, level: int):
-        """Give the milestone role for `level` and remove lower milestone roles."""
+        """Give the milestone role for `level`. Milestone roles STACK — members
+        keep every level role they've earned (Level 5 stays when you hit 10)."""
         target_name = LEVEL_ROLES.get(level)
         if not target_name:
             return
         target = discord.utils.get(member.guild.roles, name=target_name)
         if target and target not in member.roles:
             await member.add_roles(target, reason=f"Reached level {level}")
-        lower_names = {name for lvl, name in LEVEL_ROLES.items() if lvl < level}
-        to_remove = [r for r in member.roles if r.name in lower_names]
-        if to_remove:
-            await member.remove_roles(*to_remove, reason=f"Superseded by {target_name}")
 
     # ── Commands ─────────────────────────────────────────────────────────────────
 

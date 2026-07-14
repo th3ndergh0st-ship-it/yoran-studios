@@ -61,16 +61,14 @@ class VerificationView(discord.ui.View):
                 except discord.HTTPException:
                     pass
 
-        # OG — member of the legacy server too
-        legacy = next((g for g in interaction.client.guilds if g.id != STUDIOS_GUILD_ID), None)
-        if legacy and legacy.get_member(member.id):
-            og = await _get_or_create_og(guild)
-            if og and og not in member.roles:
-                try:
-                    await member.add_roles(og, reason="OG — also in the legacy server")
-                    extras.append(og.name)
-                except discord.HTTPException:
-                    pass
+        # OG — everyone verifying during the launch era gets the badge
+        og = await _get_or_create_og(guild)
+        if og and og not in member.roles:
+            try:
+                await member.add_roles(og, reason="OG — verified during the launch era")
+                extras.append(og.name)
+            except discord.HTTPException:
+                pass
 
         return extras
 
@@ -143,11 +141,17 @@ class Verification(commands.Cog):
             return
         self._backfill_started = True
         guild = self.bot.get_guild(STUDIOS_GUILD_ID)
-        if guild is None or _load_vip().get("member_backfill"):
+        if guild is None or _load_vip().get("member_backfill_v2"):
             return
         self.bot.loop.create_task(self._backfill_existing(guild))
 
     async def _backfill_existing(self, guild: discord.Guild):
+        # make sure the full member list is cached before iterating
+        if not guild.chunked:
+            try:
+                await guild.chunk()
+            except discord.HTTPException:
+                pass
         print(f"[Verification] Backfilling OG + VIP for existing members of {guild.name}...", flush=True)
         data = _load_vip()
         granted = data.setdefault("granted", [])
@@ -173,7 +177,7 @@ class Verification(commands.Cog):
                 except discord.HTTPException:
                     pass
 
-        data["member_backfill"] = True
+        data["member_backfill_v2"] = True
         _save_vip(data)
         print(
             f"[Verification] Backfill done: {count_og} OG, {count_vip} VIP "
