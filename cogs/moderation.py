@@ -4,6 +4,7 @@ from discord.ext import commands
 from datetime import timedelta
 import json
 import os
+import re
 
 from config import PRIMARY, SUCCESS, ERROR, WARNING
 from utils import is_helper, is_support, is_mod, is_admin, HELPER_ROLES
@@ -38,6 +39,16 @@ def _save_warns(data: dict):
 
 def _footer(bot: commands.Bot) -> dict:
     return {"text": "Yoran  •  Moderation", "icon_url": bot.user.display_avatar.url}
+
+
+def _parse_duration_minutes(s: str) -> int | None:
+    """'10m', '2h', '1d', '1h30m' → total minutes. Capped at Discord's 28-day max."""
+    matches = re.findall(r"(\d+)\s*([dhm])", s.lower())
+    if not matches:
+        return None
+    units = {"d": 1440, "h": 60, "m": 1}
+    total = sum(int(v) * units[u] for v, u in matches)
+    return min(total, 40320) if total > 0 else None
 
 
 CASE_EMOJI = {"warn": "⚠️", "timeout": "🔇", "untimeout": "🔊", "kick": "👢",
@@ -396,6 +407,55 @@ class Moderation(commands.Cog):
         await member.timeout(None)
         record_case(interaction.guild.id, member.id, "untimeout", interaction.user.id, "Timeout removed")
         embed = discord.Embed(title="🔊  Timeout Removed", color=SUCCESS)
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.add_field(name="👤  Member", value=member.mention, inline=True)
+        embed.add_field(name="🛡️  Moderator", value=interaction.user.mention, inline=True)
+        embed.set_footer(**_footer(self.bot))
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="mute", description="Mute (timeout) a member — durations like 10m, 2h, 1d")
+    @app_commands.default_permissions(moderate_members=True)
+    @app_commands.describe(member="Member to mute", duration="e.g. 10m, 2h, 1d, 1h30m (default: 1h, max: 28d)", reason="Reason for the mute")
+    @is_support()
+    async def mute(self, interaction: discord.Interaction, member: discord.Member, duration: str = "1h", reason: str = "No reason provided"):
+        if member.top_role >= interaction.user.top_role:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description="❌ You cannot mute someone with an equal or higher role.", color=ERROR),
+                ephemeral=True,
+            )
+        mins = _parse_duration_minutes(duration)
+        if mins is None:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description="❌ Invalid duration. Use formats like `10m`, `2h`, `1d`, `1h30m` (max 28d).", color=ERROR),
+                ephemeral=True,
+            )
+        until = discord.utils.utcnow() + timedelta(minutes=mins)
+        await member.timeout(timedelta(minutes=mins), reason=f"{interaction.user} — {reason}")
+        record_case(interaction.guild.id, member.id, "timeout", interaction.user.id, f"Muted {duration} — {reason}")
+        embed = discord.Embed(title="🔇  Member Muted", color=WARNING)
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.add_field(name="👤  Member", value=f"{member.mention}\n`{member.id}`", inline=True)
+        embed.add_field(name="⏰  Until", value=discord.utils.format_dt(until, "R"), inline=True)
+        embed.add_field(name="🛡️  Moderator", value=interaction.user.mention, inline=True)
+        embed.add_field(name="📋  Reason", value=reason, inline=False)
+        embed.set_footer(**_footer(self.bot))
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="unmute", description="Unmute a member (remove their timeout)")
+    @app_commands.default_permissions(moderate_members=True)
+    @app_commands.describe(member="Member to unmute")
+    @is_support()
+    async def unmute(self, interaction: discord.Interaction, member: discord.Member):
+        if member.top_role >= interaction.user.top_role:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description="❌ You cannot modify someone with an equal or higher role.", color=ERROR),
+                ephemeral=True,
+            )
+        await member.timeout(None)
+        record_case(interaction.guild.id, member.id, "untimeout", interaction.user.id, "Unmuted")
+        embed = discord.Embed(title="🔊  Member Unmuted", color=SUCCESS)
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="👤  Member", value=member.mention, inline=True)
         embed.add_field(name="🛡️  Moderator", value=interaction.user.mention, inline=True)
