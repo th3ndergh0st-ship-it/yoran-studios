@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 
@@ -63,17 +64,7 @@ class VerificationView(discord.ui.View):
         # OG — member of the legacy server too
         legacy = next((g for g in interaction.client.guilds if g.id != STUDIOS_GUILD_ID), None)
         if legacy and legacy.get_member(member.id):
-            og = discord.utils.get(guild.roles, name=OG_ROLE_NAME)
-            if og is None:
-                try:
-                    og = await guild.create_role(
-                        name=OG_ROLE_NAME,
-                        colour=discord.Colour.from_rgb(230, 126, 34),
-                        mentionable=False,
-                        reason="OG badge for legacy-server members",
-                    )
-                except discord.HTTPException:
-                    og = None
+            og = await _get_or_create_og(guild)
             if og and og not in member.roles:
                 try:
                     await member.add_roles(og, reason="OG — also in the legacy server")
@@ -120,12 +111,75 @@ class VerificationView(discord.ui.View):
             )
 
 
+async def _get_or_create_og(guild: discord.Guild) -> discord.Role | None:
+    og = discord.utils.get(guild.roles, name=OG_ROLE_NAME)
+    if og is None:
+        try:
+            og = await guild.create_role(
+                name=OG_ROLE_NAME,
+                colour=discord.Colour.from_rgb(230, 126, 34),
+                mentionable=False,
+                reason="OG badge role",
+            )
+        except discord.HTTPException:
+            return None
+    return og
+
+
 class Verification(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._backfill_started = False
 
     async def cog_load(self):
         self.bot.add_view(VerificationView())
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        # One-time backfill: everyone already in the server gets OG, and
+        # they claim VIP slots from the first-100 budget (oldest join first).
+        # The marker lives on the persistent volume so this never re-runs.
+        if self._backfill_started:
+            return
+        self._backfill_started = True
+        guild = self.bot.get_guild(STUDIOS_GUILD_ID)
+        if guild is None or _load_vip().get("member_backfill"):
+            return
+        self.bot.loop.create_task(self._backfill_existing(guild))
+
+    async def _backfill_existing(self, guild: discord.Guild):
+        print(f"[Verification] Backfilling OG + VIP for existing members of {guild.name}...", flush=True)
+        data = _load_vip()
+        granted = data.setdefault("granted", [])
+        vip = guild.get_role(VIP_ROLE_ID)
+        og = await _get_or_create_og(guild)
+
+        count_og = count_vip = 0
+        members = sorted((m for m in guild.members if not m.bot), key=lambda m: m.joined_at or discord.utils.utcnow())
+        for member in members:
+            if og and og not in member.roles:
+                try:
+                    await member.add_roles(og, reason="OG backfill — existing member")
+                    count_og += 1
+                    await asyncio.sleep(0.3)
+                except discord.HTTPException:
+                    pass
+            if vip and str(member.id) not in granted and len(granted) < VIP_LIMIT:
+                try:
+                    await member.add_roles(vip, reason=f"VIP backfill — early member #{len(granted) + 1}")
+                    granted.append(str(member.id))
+                    count_vip += 1
+                    await asyncio.sleep(0.3)
+                except discord.HTTPException:
+                    pass
+
+        data["member_backfill"] = True
+        _save_vip(data)
+        print(
+            f"[Verification] Backfill done: {count_og} OG, {count_vip} VIP "
+            f"({len(granted)}/{VIP_LIMIT} VIP slots used)",
+            flush=True,
+        )
 
 
 async def setup(bot: commands.Bot):
