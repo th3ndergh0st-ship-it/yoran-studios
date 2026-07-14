@@ -10,7 +10,7 @@ import storage
 COUNTING_FILE = storage.path("counting.json")
 
 MILESTONE_EVERY = 50      # every N counts...
-MILESTONE_REWARD = 100    # ...the counter earns this many coins
+MILESTONE_REWARD = 50     # ...the counter earns this many coins
 
 
 def _load() -> dict:

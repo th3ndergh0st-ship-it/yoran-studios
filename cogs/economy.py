@@ -9,8 +9,8 @@ from config import SUCCESS, ERROR, WARNING, GOLD, PRIMARY, INFO
 from utils import is_admin
 import economy_data as econ
 
-DAILY_MIN, DAILY_MAX = 100, 250
-WORK_MIN, WORK_MAX = 50, 150
+DAILY_MIN, DAILY_MAX = 50, 120
+WORK_MIN, WORK_MAX = 25, 75
 DAILY_COOLDOWN = 86400
 WORK_COOLDOWN = 3600
 ROB_COOLDOWN = 7200
@@ -25,10 +25,10 @@ ROB_FINE_PCT = (0.10, 0.30)
 ROB_FINE_MIN = 50
 
 CRIME_SUCCESS_CHANCE = 0.6
-CRIME_SUCCESS_RANGE = (100, 300)
+CRIME_SUCCESS_RANGE = (60, 160)
 CRIME_FAIL_RANGE = (75, 225)
 
-BEG_RANGE = (5, 40)
+BEG_RANGE = (5, 20)
 BEG_NOTHING_CHANCE = 0.15
 
 SLOT_SYMBOLS = ["🍒", "🍋", "🍊", "💎", "7️⃣"]
@@ -36,11 +36,11 @@ SLOT_WEIGHTS = [35, 30, 20, 10, 5]
 SLOT_TRIPLE_MULTIPLIER = {"🍒": 3, "🍋": 3, "🍊": 4, "💎": 6, "7️⃣": 10}
 
 JOBS = {
-    "Playtester":         {"min": 60, "max": 160, "flavor": "found bugs in the newest build"},
-    "Scripter":            {"min": 90, "max": 220, "flavor": "shipped a new Lua script"},
-    "3D Artist":           {"min": 80, "max": 200, "flavor": "modeled a prop for the next game"},
-    "Community Manager":   {"min": 70, "max": 180, "flavor": "kept the community drama-free"},
-    "Marketer":            {"min": 65, "max": 170, "flavor": "posted a trailer that went semi-viral"},
+    "Playtester":         {"min": 30, "max": 80,  "flavor": "found bugs in the newest build"},
+    "Scripter":            {"min": 45, "max": 110, "flavor": "shipped a new Lua script"},
+    "3D Artist":           {"min": 40, "max": 100, "flavor": "modeled a prop for the next game"},
+    "Community Manager":   {"min": 35, "max": 90,  "flavor": "kept the community drama-free"},
+    "Marketer":            {"min": 30, "max": 85,  "flavor": "posted a trailer that went semi-viral"},
 }
 
 WORK_FLAVORS = [

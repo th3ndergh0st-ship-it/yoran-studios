@@ -6,8 +6,21 @@ import json
 import os
 
 from config import PRIMARY, SUCCESS, ERROR, WARNING
-from utils import is_helper, is_support, is_mod, is_admin
+from utils import is_helper, is_support, is_mod, is_admin, HELPER_ROLES
 import storage
+
+
+def _load_locks() -> dict:
+    if not os.path.exists(storage.path("locks.json")):
+        return {}
+    with open(storage.path("locks.json"), "r") as f:
+        return json.load(f)
+
+
+def _save_locks(data: dict):
+    os.makedirs(storage.DATA_DIR, exist_ok=True)
+    with open(storage.path("locks.json"), "w") as f:
+        json.dump(data, f, indent=2)
 
 
 def _load_warns() -> dict:
@@ -482,9 +495,28 @@ class Moderation(commands.Cog):
     @is_mod()
     async def lock(self, interaction: discord.Interaction, channel: discord.TextChannel = None, reason: str = "No reason provided"):
         target = channel or interaction.channel
-        ow = target.overwrites_for(interaction.guild.default_role)
-        ow.send_messages = False
-        await target.set_permissions(interaction.guild.default_role, overwrite=ow)
+        await interaction.response.defer()
+        guild = interaction.guild
+
+        # Denying send for @everyone is not enough: member roles with an
+        # explicit send allow on the channel override it. Silence @everyone
+        # AND every non-staff role overwrite, snapshotting the previous
+        # values so /unlock can restore them exactly.
+        roles = [guild.default_role] + [
+            t for t in target.overwrites
+            if isinstance(t, discord.Role) and not t.is_default() and t.name not in HELPER_ROLES
+        ]
+        snapshot = {}
+        for role in roles:
+            ow = target.overwrites_for(role)
+            snapshot[str(role.id)] = ow.send_messages
+            ow.send_messages = False
+            await target.set_permissions(role, overwrite=ow, reason=f"Lock by {interaction.user} — {reason}")
+
+        locks = _load_locks()
+        locks.setdefault(str(guild.id), {})[str(target.id)] = snapshot
+        _save_locks(locks)
+
         embed = discord.Embed(
             title="🔒  Channel Locked",
             description=f"{target.mention} has been locked.\n**Reason:** {reason}",
@@ -492,7 +524,7 @@ class Moderation(commands.Cog):
         )
         embed.set_footer(**_footer(self.bot))
         embed.timestamp = discord.utils.utcnow()
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="unlock", description="Unlock a channel")
     @app_commands.default_permissions(manage_channels=True)
@@ -500,9 +532,40 @@ class Moderation(commands.Cog):
     @is_mod()
     async def unlock(self, interaction: discord.Interaction, channel: discord.TextChannel = None, reason: str = "No reason provided"):
         target = channel or interaction.channel
-        ow = target.overwrites_for(interaction.guild.default_role)
-        ow.send_messages = True
-        await target.set_permissions(interaction.guild.default_role, overwrite=ow)
+        await interaction.response.defer()
+        guild = interaction.guild
+
+        locks = _load_locks()
+        snapshot = locks.get(str(guild.id), {}).pop(str(target.id), None)
+        if snapshot is not None:
+            _save_locks(locks)
+            # restore each role's send_messages exactly as it was before /lock
+            for role_id, previous in snapshot.items():
+                role = guild.get_role(int(role_id))
+                if role is None:
+                    continue
+                ow = target.overwrites_for(role)
+                ow.send_messages = previous
+                if ow.is_empty():
+                    await target.set_permissions(role, overwrite=None, reason=f"Unlock by {interaction.user} — {reason}")
+                else:
+                    await target.set_permissions(role, overwrite=ow, reason=f"Unlock by {interaction.user} — {reason}")
+        else:
+            # no snapshot (locked before this fix or by hand): neutralize send
+            # on @everyone and non-staff role overwrites so defaults apply again
+            roles = [guild.default_role] + [
+                t for t in target.overwrites
+                if isinstance(t, discord.Role) and not t.is_default() and t.name not in HELPER_ROLES
+            ]
+            for role in roles:
+                ow = target.overwrites_for(role)
+                if ow.send_messages is False:
+                    ow.send_messages = None
+                    if ow.is_empty():
+                        await target.set_permissions(role, overwrite=None, reason=f"Unlock by {interaction.user} — {reason}")
+                    else:
+                        await target.set_permissions(role, overwrite=ow, reason=f"Unlock by {interaction.user} — {reason}")
+
         embed = discord.Embed(
             title="🔓  Channel Unlocked",
             description=f"{target.mention} has been unlocked.\n**Reason:** {reason}",
@@ -510,7 +573,7 @@ class Moderation(commands.Cog):
         )
         embed.set_footer(**_footer(self.bot))
         embed.timestamp = discord.utils.utcnow()
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="nick", description="Change a member's nickname")
     @app_commands.default_permissions(manage_nicknames=True)

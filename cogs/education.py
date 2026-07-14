@@ -125,7 +125,7 @@ class TriviaButton(discord.ui.Button):
                 item.style = discord.ButtonStyle.danger
 
         if correct:
-            reward = random.randint(20, 50)
+            reward = random.randint(10, 25)
             new_bal = econ.add_balance(interaction.guild.id, interaction.user.id, reward)
             desc = f"✅ Correct! You earned {econ.CURRENCY_EMOJI} `{reward}` {econ.CURRENCY_NAME}.\nBalance: {econ.CURRENCY_EMOJI} `{new_bal:,}`"
             color = SUCCESS
