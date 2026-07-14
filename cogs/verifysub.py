@@ -160,6 +160,16 @@ class SubReviewView(discord.ui.View):
         _clear_pending(guild.id, uid)
         await _finish_review(interaction.message, True, interaction.user)
 
+        # Followers no longer need the verify-sub channel — hide it for them
+        # with a member-specific overwrite (role denies would lose against the
+        # Member role's allow).
+        submit_ch = guild.get_channel(_load(CONFIG_FILE).get(str(guild.id), {}).get("submit"))
+        if submit_ch:
+            try:
+                await submit_ch.set_permissions(member, view_channel=False, reason="Follower verified — verify-sub hidden")
+            except discord.HTTPException:
+                pass
+
         try:
             await member.send(embed=discord.Embed(
                 title="✅  Verification Approved",
@@ -239,6 +249,13 @@ class VerifySub(commands.Cog):
                         removed = True
                     except discord.HTTPException:
                         pass
+                    # show verify-sub again so they can re-verify
+                    submit_ch = guild.get_channel(_load(CONFIG_FILE).get(str(guild.id), {}).get("submit"))
+                    if submit_ch:
+                        try:
+                            await submit_ch.set_permissions(member, overwrite=None, reason="Verification expired — verify-sub visible again")
+                        except discord.HTTPException:
+                            pass
             del data[user_id]
             changed = True
 
