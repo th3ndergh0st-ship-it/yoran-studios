@@ -9,6 +9,17 @@ from config import SUCCESS, ERROR, WARNING, GOLD, PRIMARY, INFO
 from utils import is_admin
 import economy_data as econ
 
+# Only the "dev" role may mint/remove currency (server owner tier).
+DEV_ROLE_ID = 1523445699377627186
+
+
+def is_dev():
+    async def predicate(interaction: discord.Interaction) -> bool:
+        if any(r.id == DEV_ROLE_ID for r in interaction.user.roles):
+            return True
+        raise app_commands.CheckFailure("dev_role")
+    return app_commands.check(predicate)
+
 DAILY_MIN, DAILY_MAX = 50, 120
 WORK_MIN, WORK_MAX = 25, 75
 DAILY_COOLDOWN = 86400
@@ -191,6 +202,43 @@ class Economy(commands.Cog):
         await interaction.response.send_message(
             embed=discord.Embed(description=f"✅ {interaction.user.mention} sent {_fmt(amount)} to {member.mention}!", color=SUCCESS)
         )
+
+    # ── Dev-only currency control ────────────────────────────────────────────────
+
+    @app_commands.command(name="addmoney", description="Add coins to a member's wallet (dev only)")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(member="Member to give coins to", amount="Amount to add")
+    @is_dev()
+    async def addmoney(self, interaction: discord.Interaction, member: discord.Member, amount: app_commands.Range[int, 1, 100_000_000]):
+        new_bal = econ.add_balance(interaction.guild.id, member.id, amount)
+        embed = discord.Embed(
+            title="💵  Coins Added",
+            description=f"Added {_fmt(amount)} to {member.mention}.\nNew wallet balance: {_fmt(new_bal)}",
+            color=SUCCESS,
+        )
+        embed.set_footer(text=f"By {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="removemoney", description="Remove coins from a member's wallet (dev only)")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(member="Member to take coins from", amount="Amount to remove, or 'all'")
+    @is_dev()
+    async def removemoney(self, interaction: discord.Interaction, member: discord.Member, amount: str):
+        wallet = econ.get_balance(interaction.guild.id, member.id)
+        amt = wallet if amount.lower() == "all" else _parse_amount(amount)
+        if amt is None or amt <= 0:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description="❌ Enter a positive number or `all`.", color=ERROR), ephemeral=True
+            )
+        amt = min(amt, wallet)
+        new_bal = econ.add_balance(interaction.guild.id, member.id, -amt)
+        embed = discord.Embed(
+            title="💸  Coins Removed",
+            description=f"Removed {_fmt(amt)} from {member.mention}.\nNew wallet balance: {_fmt(new_bal)}",
+            color=WARNING,
+        )
+        embed.set_footer(text=f"By {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+        await interaction.response.send_message(embed=embed)
 
     leaderboard = app_commands.Group(name="leaderboard", description="Server leaderboards")
 
