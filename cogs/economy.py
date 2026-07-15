@@ -219,22 +219,39 @@ class Economy(commands.Cog):
         embed.set_footer(text=f"By {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="removemoney", description="Remove coins from a member's wallet (dev only)")
+    @app_commands.command(name="removemoney", description="Remove coins from a member's wallet + bank (dev only)")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(member="Member to take coins from", amount="Amount to remove, or 'all'")
     @is_dev()
     async def removemoney(self, interaction: discord.Interaction, member: discord.Member, amount: str):
         wallet = econ.get_balance(interaction.guild.id, member.id)
-        amt = wallet if amount.lower() == "all" else _parse_amount(amount)
+        bank = econ.get_bank(interaction.guild.id, member.id)
+        total = wallet + bank
+
+        amt = total if amount.lower() == "all" else _parse_amount(amount)
         if amt is None or amt <= 0:
             return await interaction.response.send_message(
                 embed=discord.Embed(description="❌ Enter a positive number or `all`.", color=ERROR), ephemeral=True
             )
-        amt = min(amt, wallet)
-        new_bal = econ.add_balance(interaction.guild.id, member.id, -amt)
+        amt = min(amt, total)
+
+        # take from wallet first, then dip into the bank for the remainder
+        from_wallet = min(amt, wallet)
+        from_bank = amt - from_wallet
+        if from_wallet:
+            econ.add_balance(interaction.guild.id, member.id, -from_wallet)
+        if from_bank:
+            econ.add_bank(interaction.guild.id, member.id, -from_bank)
+
+        new_wallet = econ.get_balance(interaction.guild.id, member.id)
+        new_bank = econ.get_bank(interaction.guild.id, member.id)
         embed = discord.Embed(
             title="💸  Coins Removed",
-            description=f"Removed {_fmt(amt)} from {member.mention}.\nNew wallet balance: {_fmt(new_bal)}",
+            description=(
+                f"Removed {_fmt(amt)} from {member.mention} "
+                f"(👛 {from_wallet:,} wallet + 🏦 {from_bank:,} bank).\n"
+                f"New balance — 👛 {_fmt(new_wallet)} · 🏦 {_fmt(new_bank)}"
+            ),
             color=WARNING,
         )
         embed.set_footer(text=f"By {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
