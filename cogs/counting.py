@@ -6,11 +6,9 @@ from discord.ext import commands
 
 import economy_data as econ
 import storage
+import settings
 
 COUNTING_FILE = storage.path("counting.json")
-
-MILESTONE_EVERY = 50
-MILESTONE_REWARD = 50
 
 
 def _load() -> dict:
@@ -62,14 +60,15 @@ class Counting(commands.Cog):
                 cfg["high_score"] = number
             _save(data)
             try:
-                if number % MILESTONE_EVERY == 0:
+                if number % settings.get("counting", "milestone_every") == 0:
                     await message.add_reaction("🎉")
-                    econ.add_balance(message.guild.id, message.author.id, MILESTONE_REWARD)
+                    reward = settings.get("counting", "milestone_reward")
+                    econ.add_balance(message.guild.id, message.author.id, reward)
                     await message.channel.send(
                         embed=discord.Embed(
                             description=(
                                 f"🎉 **{number}!** Milestone reached — {message.author.mention} "
-                                f"earned {econ.CURRENCY_EMOJI} `{MILESTONE_REWARD}` {econ.CURRENCY_NAME}!"
+                                f"earned {econ.CURRENCY_EMOJI} `{reward}` {econ.CURRENCY_NAME}!"
                             ),
                             color=0xF1C40F,
                         )

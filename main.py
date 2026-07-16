@@ -5,7 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
-from keepalive import start_keepalive
+from dashboard import start_dashboard
 import storage
 
 load_dotenv()
@@ -84,7 +84,7 @@ class Yoran(commands.Bot):
         print(f"[Yoran] Synced {len(synced)} slash commands to Yoran Studios", flush=True)
 
         port = int(os.getenv("PORT", "3000"))
-        start_keepalive(port=port)
+        await start_dashboard(self, port)
 
     async def on_ready(self):
         await self.change_presence(

@@ -8,6 +8,7 @@ from discord.ext import commands
 from config import SUCCESS, ERROR, WARNING, GOLD, PRIMARY, INFO
 from utils import is_admin
 import economy_data as econ
+import settings
 
 DEV_ROLE_ID = 1523445699377627186
 
@@ -19,27 +20,9 @@ def is_dev():
         raise app_commands.CheckFailure("dev_role")
     return app_commands.check(predicate)
 
-DAILY_MIN, DAILY_MAX = 50, 120
-WORK_MIN, WORK_MAX = 25, 75
-DAILY_COOLDOWN = 86400
-WORK_COOLDOWN = 3600
-ROB_COOLDOWN = 7200
-CRIME_COOLDOWN = 1800
-BEG_COOLDOWN = 900
-GAMBLE_COOLDOWN = 15
+def S(key):
+    return settings.get("economy", key)
 
-ROB_MIN_TARGET_BALANCE = 50
-ROB_SUCCESS_CHANCE = 0.40
-ROB_STEAL_PCT = (0.10, 0.35)
-ROB_FINE_PCT = (0.10, 0.30)
-ROB_FINE_MIN = 50
-
-CRIME_SUCCESS_CHANCE = 0.6
-CRIME_SUCCESS_RANGE = (60, 160)
-CRIME_FAIL_RANGE = (75, 225)
-
-BEG_RANGE = (5, 20)
-BEG_NOTHING_CHANCE = 0.15
 
 SLOT_SYMBOLS = ["🍒", "🍋", "🍊", "💎", "7️⃣"]
 SLOT_WEIGHTS = [35, 30, 20, 10, 5]
@@ -346,14 +329,14 @@ class Economy(commands.Cog):
 
     @app_commands.command(name="daily", description="Claim your daily reward")
     async def daily(self, interaction: discord.Interaction):
-        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_daily", DAILY_COOLDOWN)
+        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_daily", S("daily_cooldown"))
         if remaining > 0:
             h, m = divmod(int(remaining // 60), 60)
             return await interaction.response.send_message(
                 embed=discord.Embed(description=f"⏰ You already claimed your daily reward. Try again in **{h}h {m}m**.", color=WARNING),
                 ephemeral=True,
             )
-        amount = random.randint(DAILY_MIN, DAILY_MAX)
+        amount = random.randint(S("daily_min"), S("daily_max"))
         new_bal = econ.add_balance(interaction.guild.id, interaction.user.id, amount)
         econ.set_cooldown(interaction.guild.id, interaction.user.id, "last_daily", time.time())
         await interaction.response.send_message(embed=discord.Embed(
@@ -364,7 +347,7 @@ class Economy(commands.Cog):
 
     @app_commands.command(name="work", description="Work your job (or a odd job) to earn coins")
     async def work(self, interaction: discord.Interaction):
-        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_work", WORK_COOLDOWN)
+        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_work", S("work_cooldown"))
         if remaining > 0:
             m = int(remaining // 60)
             return await interaction.response.send_message(
@@ -377,7 +360,7 @@ class Economy(commands.Cog):
             amount = random.randint(info["min"], info["max"])
             flavor = f"As a **{job}**, you {info['flavor']}"
         else:
-            amount = random.randint(WORK_MIN, WORK_MAX)
+            amount = random.randint(S("work_min"), S("work_max"))
             flavor = random.choice(WORK_FLAVORS)
         new_bal = econ.add_balance(interaction.guild.id, interaction.user.id, amount)
         econ.set_cooldown(interaction.guild.id, interaction.user.id, "last_work", time.time())
@@ -389,7 +372,7 @@ class Economy(commands.Cog):
 
     @app_commands.command(name="crime", description="Attempt a risky crime for a bigger payout")
     async def crime(self, interaction: discord.Interaction):
-        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_crime", CRIME_COOLDOWN)
+        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_crime", S("crime_cooldown"))
         if remaining > 0:
             m = int(remaining // 60)
             return await interaction.response.send_message(
@@ -397,13 +380,13 @@ class Economy(commands.Cog):
                 ephemeral=True,
             )
         econ.set_cooldown(interaction.guild.id, interaction.user.id, "last_crime", time.time())
-        if random.random() < CRIME_SUCCESS_CHANCE:
-            amount = random.randint(*CRIME_SUCCESS_RANGE)
+        if random.random() < S("crime_success_chance"):
+            amount = random.randint(S("crime_win_min"), S("crime_win_max"))
             new_bal = econ.add_balance(interaction.guild.id, interaction.user.id, amount)
             desc = f"{random.choice(CRIME_SUCCESS_FLAVORS)} and made {_fmt(amount)}!\nWallet balance: {_fmt(new_bal)}"
             color = SUCCESS
         else:
-            fine = random.randint(*CRIME_FAIL_RANGE)
+            fine = random.randint(S("crime_fail_min"), S("crime_fail_max"))
             wallet = econ.get_balance(interaction.guild.id, interaction.user.id)
             fine = min(fine, wallet)
             new_bal = econ.add_balance(interaction.guild.id, interaction.user.id, -fine)
@@ -413,7 +396,7 @@ class Economy(commands.Cog):
 
     @app_commands.command(name="beg", description="Beg for a few coins")
     async def beg(self, interaction: discord.Interaction):
-        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_beg", BEG_COOLDOWN)
+        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_beg", S("beg_cooldown"))
         if remaining > 0:
             m = int(remaining // 60) + 1
             return await interaction.response.send_message(
@@ -421,11 +404,11 @@ class Economy(commands.Cog):
                 ephemeral=True,
             )
         econ.set_cooldown(interaction.guild.id, interaction.user.id, "last_beg", time.time())
-        if random.random() < BEG_NOTHING_CHANCE:
+        if random.random() < S("beg_nothing_chance"):
             desc = random.choice(BEG_NOTHING_FLAVORS)
             color = WARNING
         else:
-            amount = random.randint(*BEG_RANGE)
+            amount = random.randint(S("beg_min"), S("beg_max"))
             new_bal = econ.add_balance(interaction.guild.id, interaction.user.id, amount)
             desc = f"{random.choice(BEG_FLAVORS)} — you got {_fmt(amount)}!\nWallet balance: {_fmt(new_bal)}"
             color = SUCCESS
@@ -442,7 +425,7 @@ class Economy(commands.Cog):
             return await interaction.response.send_message(
                 embed=discord.Embed(description="❌ You can't rob a bot.", color=ERROR), ephemeral=True
             )
-        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_rob", ROB_COOLDOWN)
+        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_rob", S("rob_cooldown"))
         if remaining > 0:
             m = int(remaining // 60)
             return await interaction.response.send_message(
@@ -450,15 +433,15 @@ class Economy(commands.Cog):
                 ephemeral=True,
             )
         target_wallet = econ.get_balance(interaction.guild.id, member.id)
-        if target_wallet < ROB_MIN_TARGET_BALANCE:
+        if target_wallet < S("rob_min_target_balance"):
             return await interaction.response.send_message(
                 embed=discord.Embed(description=f"❌ {member.mention} doesn't have enough coins in their wallet to be worth robbing.", color=ERROR),
                 ephemeral=True,
             )
         econ.set_cooldown(interaction.guild.id, interaction.user.id, "last_rob", time.time())
 
-        if random.random() < ROB_SUCCESS_CHANCE:
-            pct = random.uniform(*ROB_STEAL_PCT)
+        if random.random() < S("rob_success_chance"):
+            pct = random.uniform(S("rob_steal_pct_min"), S("rob_steal_pct_max"))
             stolen = max(1, int(target_wallet * pct))
             econ.add_balance(interaction.guild.id, member.id, -stolen)
             new_bal = econ.add_balance(interaction.guild.id, interaction.user.id, stolen)
@@ -466,7 +449,7 @@ class Economy(commands.Cog):
             color = SUCCESS
         else:
             wallet = econ.get_balance(interaction.guild.id, interaction.user.id)
-            fine = max(ROB_FINE_MIN, int(wallet * random.uniform(*ROB_FINE_PCT)))
+            fine = max(S("rob_fine_min"), int(wallet * random.uniform(S("rob_fine_pct_min"), S("rob_fine_pct_max"))))
             fine = min(fine, wallet)
             new_bal = econ.add_balance(interaction.guild.id, interaction.user.id, -fine)
             desc = f"{random.choice(ROB_FAIL_FLAVORS).format(target=member.mention)} — you paid a fine of {_fmt(fine)}.\nWallet balance: {_fmt(new_bal)}"
@@ -479,7 +462,7 @@ class Economy(commands.Cog):
     @app_commands.describe(bet="Amount to bet", choice="Heads or tails")
     @app_commands.choices(choice=[app_commands.Choice(name="Heads", value="heads"), app_commands.Choice(name="Tails", value="tails")])
     async def coinflip(self, interaction: discord.Interaction, bet: app_commands.Range[int, 10, 1_000_000], choice: app_commands.Choice[str]):
-        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_gamble", GAMBLE_COOLDOWN)
+        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_gamble", S("gamble_cooldown"))
         if remaining > 0:
             return await interaction.response.send_message(
                 embed=discord.Embed(description=f"⏰ Easy, gambler — wait **{int(remaining) + 1}s** before betting again.", color=WARNING),
@@ -507,7 +490,7 @@ class Economy(commands.Cog):
     @app_commands.command(name="slots", description="Try your luck on the slot machine")
     @app_commands.describe(bet="Amount to bet")
     async def slots(self, interaction: discord.Interaction, bet: app_commands.Range[int, 10, 1_000_000]):
-        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_gamble", GAMBLE_COOLDOWN)
+        remaining = _cooldown_remaining(interaction.guild.id, interaction.user.id, "last_gamble", S("gamble_cooldown"))
         if remaining > 0:
             return await interaction.response.send_message(
                 embed=discord.Embed(description=f"⏰ Easy, gambler — wait **{int(remaining) + 1}s** before betting again.", color=WARNING),

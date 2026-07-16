@@ -10,11 +10,9 @@ from discord.ext import commands
 
 from config import PRIMARY, GOLD
 import storage
+import settings
 
 LEVELS_FILE = storage.path("levels.json")
-
-XP_PER_MESSAGE = (15, 25)
-XP_COOLDOWN = 60
 
 LEVEL_ROLES = {
     5: "Level 5", 10: "Level 10", 20: "Level 20", 30: "Level 30",
@@ -132,11 +130,11 @@ class Levels(commands.Cog):
         user["messages_week"] = user.get("messages_week", 0) + 1
 
         now = time.time()
-        if now - user.get("last_xp", 0) < XP_COOLDOWN:
+        if now - user.get("last_xp", 0) < settings.get("levels", "xp_cooldown"):
             _save(data)
             return
 
-        user["xp"] += random.randint(*XP_PER_MESSAGE)
+        user["xp"] += random.randint(settings.get("levels", "xp_min"), settings.get("levels", "xp_max"))
         user["last_xp"] = now
 
         leveled_up = False

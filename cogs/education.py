@@ -7,8 +7,7 @@ from discord.ext import commands
 
 from config import PRIMARY, SUCCESS, ERROR, INFO, WARNING
 import economy_data as econ
-
-TRIVIA_COOLDOWN = 300
+import settings
 
 TIPS = [
     "Use `TweenService` instead of manually changing properties every frame — it's smoother and cheaper on performance.",
@@ -125,7 +124,7 @@ class TriviaButton(discord.ui.Button):
                 item.style = discord.ButtonStyle.danger
 
         if correct:
-            reward = random.randint(10, 25)
+            reward = random.randint(settings.get("trivia", "reward_min"), settings.get("trivia", "reward_max"))
             new_bal = econ.add_balance(interaction.guild.id, interaction.user.id, reward)
             desc = f"✅ Correct! You earned {econ.CURRENCY_EMOJI} `{reward}` {econ.CURRENCY_NAME}.\nBalance: {econ.CURRENCY_EMOJI} `{new_bal:,}`"
             color = SUCCESS
@@ -154,7 +153,7 @@ class Education(commands.Cog):
     @app_commands.command(name="trivia", description="Answer a Roblox/Lua trivia question for coins")
     async def trivia(self, interaction: discord.Interaction):
         last = econ.get_cooldown(interaction.guild.id, interaction.user.id, "last_trivia")
-        remaining = TRIVIA_COOLDOWN - (time.time() - last)
+        remaining = settings.get("trivia", "cooldown") - (time.time() - last)
         if remaining > 0:
             m, s = divmod(int(remaining), 60)
             return await interaction.response.send_message(
