@@ -47,7 +47,15 @@ DEFAULTS = {
         "milestone_every": 50,
         "milestone_reward": 50,
     },
+    "presence": {
+        "status": "online",
+        "activity_type": "watching",
+        "activity_name": "/help • Yoran Studios",
+    },
 }
+
+PRESENCE_STATUS = ("online", "idle", "dnd", "invisible")
+PRESENCE_TYPES = ("playing", "watching", "listening", "competing")
 
 FIELD_TYPES = {}
 for _section, _values in DEFAULTS.items():
@@ -104,6 +112,12 @@ def save(new_values: dict) -> dict:
                 value = max(0.0, min(1.0, value)) if key.endswith(("_chance", "_pct_min", "_pct_max")) else max(0.0, value)
             elif expected is int:
                 value = max(0, value)
+            elif expected is str:
+                value = value.strip()[:128]
+                if key == "status" and value not in PRESENCE_STATUS:
+                    continue
+                if key == "activity_type" and value not in PRESENCE_TYPES:
+                    continue
             current[section][key] = value
 
     _validate(current)

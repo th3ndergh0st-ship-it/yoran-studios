@@ -5,7 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
-from dashboard import start_dashboard
+from dashboard import start_dashboard, apply_presence
 import storage
 
 load_dotenv()
@@ -87,13 +87,7 @@ class Yoran(commands.Bot):
         await start_dashboard(self, port)
 
     async def on_ready(self):
-        await self.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.watching,
-                name="/help • Yoran Studios",
-            ),
-            status=discord.Status.online,
-        )
+        await apply_presence(self)
         print(f"[Yoran] Online · {self.user} · {len(self.guilds)} server(s)")
 
     async def _assign_unverified(self, member: discord.Member):
