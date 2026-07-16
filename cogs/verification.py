@@ -3,15 +3,20 @@ import json
 import os
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
-from config import PRIMARY, SUCCESS, ERROR
+from config import PRIMARY, SUCCESS, ERROR, GOLD
+from cogs.economy import is_dev
 import storage
 
 MEMBER_ROLE_NAME = "Member"
 UNVERIFIED_ROLE_NAME = "Unverified"
 
 STUDIOS_GUILD_ID = 1523445628204482620
+# The legacy "Destroy! - Community" server. The OG badge is only for members
+# who are in BOTH servers, so the bot must be a member of this one too.
+DESTROY_GUILD_ID = 1230234714162335825
 
 # The first N members to verify get the VIP role — after that, nobody else.
 VIP_ROLE_ID = 1526499976421703731
@@ -112,8 +117,8 @@ class VerificationView(discord.ui.View):
 
 
 def _legacy_guild(client: discord.Client) -> discord.Guild | None:
-    """The destroy/legacy server — any guild the bot is in other than Studios."""
-    return next((g for g in client.guilds if g.id != STUDIOS_GUILD_ID), None)
+    """The Destroy server. Returns None if the bot isn't a member of it."""
+    return client.get_guild(DESTROY_GUILD_ID)
 
 
 def _is_in_legacy(client: discord.Client, user_id: int) -> bool:
@@ -143,6 +148,69 @@ class Verification(commands.Cog):
 
     async def cog_load(self):
         self.bot.add_view(VerificationView())
+
+    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        if isinstance(error, app_commands.CheckFailure):
+            msg = "❌ You don't have the required role for this command."
+        else:
+            print(f"[Yoran] Command error in {getattr(interaction.command, 'qualified_name', '?')}: {error!r}", flush=True)
+            msg = "❌ Something went wrong running that command — the error was logged."
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                embed=discord.Embed(description=msg, color=ERROR), ephemeral=True
+            )
+
+    @app_commands.command(name="ogmembers", description="OG badge breakdown: who came from Destroy (dev only)")
+    @app_commands.default_permissions(administrator=True)
+    @is_dev()
+    async def ogmembers(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+        og = discord.utils.get(guild.roles, name=OG_ROLE_NAME)
+        if og is None:
+            return await interaction.followup.send(
+                embed=discord.Embed(description="❌ The **OG** role doesn't exist.", color=ERROR), ephemeral=True
+            )
+
+        legacy = _legacy_guild(self.bot)
+        if legacy is not None and not legacy.chunked:
+            try:
+                await legacy.chunk()
+            except discord.HTTPException:
+                pass
+
+        holders = [m for m in og.members if not m.bot]
+        if legacy is None:
+            from_destroy, from_other = [], holders
+            legacy_note = "⚠️ I'm not in the Destroy server, so I can't tell who came from there."
+        else:
+            from_destroy = [m for m in holders if legacy.get_member(m.id)]
+            from_other = [m for m in holders if not legacy.get_member(m.id)]
+            legacy_note = f"Cross-checked against **{legacy.name}** ({legacy.member_count:,} members)."
+
+        # members here who are in Destroy but somehow lack the badge
+        missing = []
+        if legacy is not None:
+            missing = [m for m in guild.members if not m.bot and legacy.get_member(m.id) and og not in m.roles]
+
+        embed = discord.Embed(title="🏅  OG Members", description=legacy_note, color=GOLD)
+        embed.add_field(name="🔥 From Destroy", value=f"`{len(from_destroy)}`", inline=True)
+        embed.add_field(name="❓ Other / manual", value=f"`{len(from_other)}`", inline=True)
+        embed.add_field(name="📊 Total OG", value=f"`{len(holders)}`", inline=True)
+
+        if from_other:
+            names = ", ".join(m.mention for m in from_other[:15])
+            if len(from_other) > 15:
+                names += f" …and {len(from_other) - 15} more"
+            embed.add_field(name="Holders not in Destroy", value=names, inline=False)
+        if missing:
+            names = ", ".join(m.mention for m in missing[:15])
+            if len(missing) > 15:
+                names += f" …and {len(missing) - 15} more"
+            embed.add_field(name="⚠️ In Destroy but no OG (need to verify)", value=names, inline=False)
+
+        embed.set_footer(text="Yoran Studios  •  OG is granted at /verify to members of both servers")
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @commands.Cog.listener()
     async def on_ready(self):
