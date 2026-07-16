@@ -111,15 +111,6 @@ class Yoran(commands.Bot):
             except discord.HTTPException as e:
                 print(f"[Yoran] Could not assign Unverified to {member}: {e}", flush=True)
 
-        # OG badge for everyone joining during the launch era (until told otherwise)
-        from cogs.verification import _get_or_create_og
-        og = await _get_or_create_og(member.guild)
-        if og and og not in member.roles:
-            try:
-                await member.add_roles(og, reason="OG — joined during the launch era")
-            except discord.HTTPException as e:
-                print(f"[Yoran] Could not assign OG to {member}: {e}", flush=True)
-
     async def on_member_join(self, member: discord.Member):
         if member.guild.id != STUDIOS_GUILD_ID:
             return

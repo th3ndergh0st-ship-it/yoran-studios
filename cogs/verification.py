@@ -61,14 +61,16 @@ class VerificationView(discord.ui.View):
                 except discord.HTTPException:
                     pass
 
-        # OG — everyone verifying during the launch era gets the badge
-        og = await _get_or_create_og(guild)
-        if og and og not in member.roles:
-            try:
-                await member.add_roles(og, reason="OG — verified during the launch era")
-                extras.append(og.name)
-            except discord.HTTPException:
-                pass
+        # OG — only for members who are ALSO in the legacy (destroy) server.
+        # Requires the bot to be in that server; otherwise nobody qualifies.
+        if _is_in_legacy(interaction.client, member.id):
+            og = await _get_or_create_og(guild)
+            if og and og not in member.roles:
+                try:
+                    await member.add_roles(og, reason="OG — also a member of the legacy server")
+                    extras.append(og.name)
+                except discord.HTTPException:
+                    pass
 
         return extras
 
@@ -109,6 +111,16 @@ class VerificationView(discord.ui.View):
             )
 
 
+def _legacy_guild(client: discord.Client) -> discord.Guild | None:
+    """The destroy/legacy server — any guild the bot is in other than Studios."""
+    return next((g for g in client.guilds if g.id != STUDIOS_GUILD_ID), None)
+
+
+def _is_in_legacy(client: discord.Client, user_id: int) -> bool:
+    legacy = _legacy_guild(client)
+    return bool(legacy and legacy.get_member(user_id))
+
+
 async def _get_or_create_og(guild: discord.Guild) -> discord.Role | None:
     og = discord.utils.get(guild.roles, name=OG_ROLE_NAME)
     if og is None:
@@ -134,14 +146,13 @@ class Verification(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        # One-time backfill: everyone already in the server gets OG, and
-        # they claim VIP slots from the first-100 budget (oldest join first).
-        # The marker lives on the persistent volume so this never re-runs.
+        # One-time pass: VIP for the earliest members (first-100 budget) and
+        # OG synced against the legacy server. Marker lives on the volume.
         if self._backfill_started:
             return
         self._backfill_started = True
         guild = self.bot.get_guild(STUDIOS_GUILD_ID)
-        if guild is None or _load_vip().get("member_backfill_v2"):
+        if guild is None or _load_vip().get("og_sync_v3"):
             return
         self.bot.loop.create_task(self._backfill_existing(guild))
 
@@ -152,20 +163,38 @@ class Verification(commands.Cog):
                 await guild.chunk()
             except discord.HTTPException:
                 pass
-        print(f"[Verification] Backfilling OG + VIP for existing members of {guild.name}...", flush=True)
+
+        legacy = _legacy_guild(self.bot)
+        if legacy is None:
+            print("[Verification] OG sync skipped — the bot is not in the legacy server", flush=True)
+            return
+        if not legacy.chunked:
+            try:
+                await legacy.chunk()
+            except discord.HTTPException:
+                pass
+
+        print(f"[Verification] Syncing OG against {legacy.name} + VIP for {guild.name}...", flush=True)
         data = _load_vip()
         granted = data.setdefault("granted", [])
         vip = guild.get_role(VIP_ROLE_ID)
         og = await _get_or_create_og(guild)
 
-        count_og = count_vip = 0
+        added_og = removed_og = count_vip = 0
         members = sorted((m for m in guild.members if not m.bot), key=lambda m: m.joined_at or discord.utils.utcnow())
         for member in members:
-            if og and og not in member.roles:
+            if og:
+                in_legacy = legacy.get_member(member.id) is not None
+                has_og = og in member.roles
                 try:
-                    await member.add_roles(og, reason="OG backfill — existing member")
-                    count_og += 1
-                    await asyncio.sleep(0.3)
+                    if in_legacy and not has_og:
+                        await member.add_roles(og, reason="OG — also a member of the legacy server")
+                        added_og += 1
+                        await asyncio.sleep(0.3)
+                    elif not in_legacy and has_og:
+                        await member.remove_roles(og, reason="OG — not a member of the legacy server")
+                        removed_og += 1
+                        await asyncio.sleep(0.3)
                 except discord.HTTPException:
                     pass
             if vip and str(member.id) not in granted and len(granted) < VIP_LIMIT:
@@ -177,10 +206,10 @@ class Verification(commands.Cog):
                 except discord.HTTPException:
                     pass
 
-        data["member_backfill_v2"] = True
+        data["og_sync_v3"] = True
         _save_vip(data)
         print(
-            f"[Verification] Backfill done: {count_og} OG, {count_vip} VIP "
+            f"[Verification] Sync done: +{added_og} OG, -{removed_og} OG, {count_vip} VIP "
             f"({len(granted)}/{VIP_LIMIT} VIP slots used)",
             flush=True,
         )
