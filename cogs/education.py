@@ -8,7 +8,7 @@ from discord.ext import commands
 from config import PRIMARY, SUCCESS, ERROR, INFO, WARNING
 import economy_data as econ
 
-TRIVIA_COOLDOWN = 300  # coins are involved, so trivia can't be spammed
+TRIVIA_COOLDOWN = 300
 
 TIPS = [
     "Use `TweenService` instead of manually changing properties every frame — it's smoother and cheaper on performance.",

@@ -10,8 +10,6 @@ from config import PRIMARY, SUCCESS, ERROR
 import storage
 
 YT_CHANNEL_URL = "https://www.youtube.com/@YoranStudio"
-# The existing "Follower" role — matched by ID so renames don't break it.
-# The bot never creates a new role for this.
 REWARD_ROLE_ID = 1526375014876713142
 REWARD_ROLE_NAME = "Follower"
 VERIFY_TTL_DAYS = 30
@@ -19,9 +17,7 @@ VERIFY_TTL_DAYS = 30
 SUBMIT_CHANNEL_NAME = "✅・verify-sub"
 REVIEW_CHANNEL_NAME = "📩・sub-reviews"
 
-# {guild_id: {"submit": channel_id, "review": channel_id, "pending": {user_id: msg_id}}}
 CONFIG_FILE = storage.path("verifysub.json")
-# {user_id: verified_at_timestamp}
 VERIFIED_FILE = storage.path("yt_verified.json")
 
 
@@ -65,8 +61,6 @@ async def _ensure_reward_role(guild: discord.Guild) -> discord.Role | None:
 
 
 async def _finish_review(message: discord.Message, approved: bool, reviewer: discord.Member, note: str = ""):
-    # reviewed requests are removed so the review channel never clogs up;
-    # the reviewer gets an ephemeral confirmation and the member gets a DM
     try:
         await message.delete()
     except discord.HTTPException:
@@ -160,9 +154,6 @@ class SubReviewView(discord.ui.View):
         _clear_pending(guild.id, uid)
         await _finish_review(interaction.message, True, interaction.user)
 
-        # Followers no longer need the verify-sub channel — hide it for them
-        # with a member-specific overwrite (role denies would lose against the
-        # Member role's allow).
         submit_ch = guild.get_channel(_load(CONFIG_FILE).get(str(guild.id), {}).get("submit"))
         if submit_ch:
             try:
@@ -227,7 +218,6 @@ class VerifySub(commands.Cog):
                 ephemeral=True,
             )
 
-    # ── 30-day expiry ────────────────────────────────────────────────────────────
 
     @tasks.loop(hours=12)
     async def expire_verifications(self):
@@ -249,7 +239,6 @@ class VerifySub(commands.Cog):
                         removed = True
                     except discord.HTTPException:
                         pass
-                    # show verify-sub again so they can re-verify
                     submit_ch = guild.get_channel(_load(CONFIG_FILE).get(str(guild.id), {}).get("submit"))
                     if submit_ch:
                         try:
@@ -282,7 +271,6 @@ class VerifySub(commands.Cog):
     async def before_expire(self):
         await self.bot.wait_until_ready()
 
-    # ── Submit channel auto-clean ────────────────────────────────────────────────
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -295,7 +283,6 @@ class VerifySub(commands.Cog):
             except discord.HTTPException:
                 pass
 
-    # ── Commands ─────────────────────────────────────────────────────────────────
 
     @app_commands.command(name="verifysub", description="Verify your YouTube subscription by submitting a screenshot")
     @app_commands.describe(screenshot="Screenshot proving you're subscribed to the channel")

@@ -57,8 +57,6 @@ def _ended_embed(prize: str, winner_mentions: list[str]) -> discord.Embed:
     return embed
 
 
-# ── Views ─────────────────────────────────────────────────────────────────────
-
 class GiveawayEnterView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -102,8 +100,6 @@ class GiveawayEnterView(discord.ui.View):
         )
 
 
-# ── Cog ───────────────────────────────────────────────────────────────────────
-
 class Giveaway(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -115,7 +111,6 @@ class Giveaway(commands.Cog):
     async def cog_unload(self):
         self.check_giveaways.cancel()
 
-    # ── Background task ───────────────────────────────────────────────────────
 
     @tasks.loop(seconds=30)
     async def check_giveaways(self):
@@ -139,7 +134,6 @@ class Giveaway(commands.Cog):
     async def before_check(self):
         await self.bot.wait_until_ready()
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
 
     async def _end_giveaway(self, msg_id: str, gw: dict, data: dict):
         channel = self.bot.get_channel(gw["channel_id"])
@@ -183,7 +177,6 @@ class Giveaway(commands.Cog):
         gw["winners"] = winners
         data[msg_id]  = gw
 
-    # ── Commands ──────────────────────────────────────────────────────────────
 
     giveaway = app_commands.Group(
         name="giveaway",

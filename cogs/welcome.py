@@ -45,10 +45,6 @@ class Welcome(commands.Cog):
             embed.set_image(url=cfg["banner"])
         await channel.send(content=member.mention if cfg.get("ping") else None, embed=embed)
 
-    # Goodbye messages intentionally removed — the welcome channel only
-    # tracks joins now (leaves would just clutter it).
-
-
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Welcome(bot))

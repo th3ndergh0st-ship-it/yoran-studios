@@ -9,8 +9,8 @@ import storage
 
 COUNTING_FILE = storage.path("counting.json")
 
-MILESTONE_EVERY = 50      # every N counts...
-MILESTONE_REWARD = 50     # ...the counter earns this many coins
+MILESTONE_EVERY = 50
+MILESTONE_REWARD = 50
 
 
 def _load() -> dict:
@@ -46,7 +46,6 @@ class Counting(commands.Cog):
         try:
             number = int(content)
         except ValueError:
-            # keep the channel clean: non-numbers get removed silently
             try:
                 await message.delete()
             except discord.HTTPException:

@@ -11,12 +11,8 @@ import storage
 load_dotenv()
 storage.bootstrap()
 
-# This bot is exclusive to the Yoran Studios server. Slash commands are
-# refused everywhere else — the Yoran Shop server has its own separate bot.
 STUDIOS_GUILD_ID = 1523445628204482620
 
-# Universal per-user cooldown between ANY two slash commands, so nobody can
-# flood the bot with rapid-fire commands.
 GLOBAL_COMMAND_COOLDOWN = 2.0
 
 
@@ -80,14 +76,11 @@ class Yoran(commands.Bot):
         for ext in extensions:
             await self.load_extension(ext)
 
-        # Register commands per-guild instead of globally so they only
-        # show up inside Yoran Studios — not in any other server the bot
-        # happens to be in.
         studios = discord.Object(STUDIOS_GUILD_ID)
         self.tree.copy_global_to(guild=studios)
         self.tree.clear_commands(guild=None)
         synced = await self.tree.sync(guild=studios)
-        await self.tree.sync()  # push the now-empty global list so old global commands disappear
+        await self.tree.sync()
         print(f"[Yoran] Synced {len(synced)} slash commands to Yoran Studios", flush=True)
 
         port = int(os.getenv("PORT", "3000"))
@@ -114,9 +107,6 @@ class Yoran(commands.Bot):
     async def on_member_join(self, member: discord.Member):
         if member.guild.id != STUDIOS_GUILD_ID:
             return
-        # Community servers with rules screening keep new members "pending";
-        # Discord forbids giving roles to pending members, so wait for
-        # on_member_update to fire once they accept the rules.
         if member.pending:
             return
         await self._assign_unverified(member)

@@ -9,7 +9,6 @@ import storage
 
 LOGS_FILE = storage.path("logs.json")
 
-# Role changes made by the verification flow itself would flood action-logs.
 IGNORED_ROLE_NAMES = {"Member", "Unverified"}
 
 
@@ -36,7 +35,6 @@ class Logs(commands.Cog):
             except discord.HTTPException:
                 pass
 
-    # ── Ban / moderation logs (audit-log based: catches manual + bot actions) ────
 
     @commands.Cog.listener()
     async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry):
@@ -97,7 +95,6 @@ class Logs(commands.Cog):
             embed.timestamp = discord.utils.utcnow()
             await self._send(guild, "mod", embed)
 
-    # ── Action logs ──────────────────────────────────────────────────────────────
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
@@ -162,7 +159,6 @@ class Logs(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await self._send(channel.guild, "action", embed)
 
-    # ── AutoMod logs ─────────────────────────────────────────────────────────────
 
     @commands.Cog.listener()
     async def on_automod_action(self, execution: discord.AutoModAction):

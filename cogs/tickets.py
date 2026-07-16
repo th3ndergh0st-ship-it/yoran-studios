@@ -69,8 +69,6 @@ def _staff_overwrites(guild: discord.Guild, user: discord.Member) -> dict:
     return overwrites
 
 
-# ── Ticket open modal ─────────────────────────────────────────────────────────
-
 class TicketOpenModal(discord.ui.Modal, title="🎫 Open a Support Ticket"):
     ticket_type = discord.ui.TextInput(
         label="Ticket Type",
@@ -149,8 +147,6 @@ class TicketOpenModal(discord.ui.Modal, title="🎫 Open a Support Ticket"):
             except discord.HTTPException:
                 pass
 
-
-# ── Views ─────────────────────────────────────────────────────────────────────
 
 class TicketOpenView(discord.ui.View):
     def __init__(self):

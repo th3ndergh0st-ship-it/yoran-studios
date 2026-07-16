@@ -81,8 +81,6 @@ def get_cases(guild_id: int, user_id: int) -> list[dict]:
         return json.load(f).get(str(guild_id), {}).get(str(user_id), [])
 
 
-# ── Modals ────────────────────────────────────────────────────────────────────
-
 class BanModal(discord.ui.Modal, title="🔨 Ban Member"):
     reason = discord.ui.TextInput(
         label="Reason",
@@ -194,7 +192,6 @@ class SoftbanModal(discord.ui.Modal, title="🧹 Softban Member"):
             ))
         except Exception:
             pass
-        # ban to purge the last 24h of messages, then unban right away
         await interaction.guild.ban(member, reason=f"Softban by {interaction.user} — {reason}", delete_message_seconds=86400)
         await interaction.guild.unban(member, reason="Softban release")
         record_case(interaction.guild.id, member.id, "softban", interaction.user.id, reason)
@@ -299,8 +296,6 @@ class TimeoutModal(discord.ui.Modal, title="🔇 Timeout Member"):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-
-# ── Cog ───────────────────────────────────────────────────────────────────────
 
 class Moderation(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -519,8 +514,6 @@ class Moderation(commands.Cog):
     @is_support()
     async def purge(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1, 100], member: discord.Member = None):
         await interaction.response.defer(ephemeral=True)
-        # Discord refuses to bulk-delete messages older than 14 days, so let
-        # purge() split into bulk + individual deletes as needed.
         deleted = await interaction.channel.purge(
             limit=amount,
             check=lambda msg: member is None or msg.author == member,
@@ -558,10 +551,6 @@ class Moderation(commands.Cog):
         await interaction.response.defer()
         guild = interaction.guild
 
-        # Denying send for @everyone is not enough: member roles with an
-        # explicit send allow on the channel override it. Silence @everyone
-        # AND every non-staff role overwrite, snapshotting the previous
-        # values so /unlock can restore them exactly.
         roles = [guild.default_role] + [
             t for t in target.overwrites
             if isinstance(t, discord.Role) and not t.is_default() and t.name not in HELPER_ROLES
@@ -599,7 +588,6 @@ class Moderation(commands.Cog):
         snapshot = locks.get(str(guild.id), {}).pop(str(target.id), None)
         if snapshot is not None:
             _save_locks(locks)
-            # restore each role's send_messages exactly as it was before /lock
             for role_id, previous in snapshot.items():
                 role = guild.get_role(int(role_id))
                 if role is None:
@@ -611,8 +599,6 @@ class Moderation(commands.Cog):
                 else:
                     await target.set_permissions(role, overwrite=ow, reason=f"Unlock by {interaction.user} — {reason}")
         else:
-            # no snapshot (locked before this fix or by hand): neutralize send
-            # on @everyone and non-staff role overwrites so defaults apply again
             roles = [guild.default_role] + [
                 t for t in target.overwrites
                 if isinstance(t, discord.Role) and not t.is_default() and t.name not in HELPER_ROLES

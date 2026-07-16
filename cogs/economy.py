@@ -9,7 +9,6 @@ from config import SUCCESS, ERROR, WARNING, GOLD, PRIMARY, INFO
 from utils import is_admin
 import economy_data as econ
 
-# Only the "dev" role may mint/remove currency (server owner tier).
 DEV_ROLE_ID = 1523445699377627186
 
 
@@ -27,7 +26,7 @@ WORK_COOLDOWN = 3600
 ROB_COOLDOWN = 7200
 CRIME_COOLDOWN = 1800
 BEG_COOLDOWN = 900
-GAMBLE_COOLDOWN = 15  # shared between /coinflip and /slots
+GAMBLE_COOLDOWN = 15
 
 ROB_MIN_TARGET_BALANCE = 50
 ROB_SUCCESS_CHANCE = 0.40
@@ -127,8 +126,6 @@ class Economy(commands.Cog):
             )
 
 
-    # ── Balance / bank ──────────────────────────────────────────────────────────
-
     @app_commands.command(name="balance", description="Check your (or someone else's) wallet and bank balance")
     @app_commands.describe(member="Member to check")
     async def balance(self, interaction: discord.Interaction, member: discord.Member = None):
@@ -203,7 +200,6 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"✅ {interaction.user.mention} sent {_fmt(amount)} to {member.mention}!", color=SUCCESS)
         )
 
-    # ── Dev-only currency control ────────────────────────────────────────────────
 
     @app_commands.command(name="addmoney", description="Add coins to a member's wallet (dev only)")
     @app_commands.default_permissions(administrator=True)
@@ -235,7 +231,6 @@ class Economy(commands.Cog):
             )
         amt = min(amt, total)
 
-        # take from wallet first, then dip into the bank for the remainder
         from_wallet = min(amt, wallet)
         from_bank = amt - from_wallet
         if from_wallet:
@@ -306,7 +301,6 @@ class Economy(commands.Cog):
         stats = get_guild_stats(interaction.guild.id)
 
         def value_of(u: dict) -> int:
-            # daily/weekly buckets only count if their period key is current
             if key_field and u.get(key_field) != current_key:
                 return 0
             return u.get(field, 0)
@@ -349,7 +343,6 @@ class Economy(commands.Cog):
             embed=self._lb_embed(interaction, "🏆  Invite Leaderboard", "Ranked by members invited", lines)
         )
 
-    # ── Earning ──────────────────────────────────────────────────────────────────
 
     @app_commands.command(name="daily", description="Claim your daily reward")
     async def daily(self, interaction: discord.Interaction):
@@ -481,7 +474,6 @@ class Economy(commands.Cog):
 
         await interaction.response.send_message(embed=discord.Embed(title="🦹  Robbery", description=desc, color=color))
 
-    # ── Gambling ─────────────────────────────────────────────────────────────────
 
     @app_commands.command(name="coinflip", description="Bet coins on a coin flip")
     @app_commands.describe(bet="Amount to bet", choice="Heads or tails")
@@ -549,7 +541,6 @@ class Economy(commands.Cog):
         embed.set_footer(text=f"Wallet balance: {new_bal:,} {econ.CURRENCY_NAME}")
         await interaction.response.send_message(embed=embed)
 
-    # ── Jobs ─────────────────────────────────────────────────────────────────────
 
     @app_commands.command(name="jobs", description="View available jobs and their pay ranges")
     async def jobs_list(self, interaction: discord.Interaction):
@@ -573,7 +564,6 @@ class Economy(commands.Cog):
             embed=discord.Embed(description=f"✅ You are now a **{chosen or 'Unemployed'}**.", color=SUCCESS)
         )
 
-    # ── Shop ─────────────────────────────────────────────────────────────────────
 
     @app_commands.command(name="shop", description="View items available in the coin shop")
     async def shop_view(self, interaction: discord.Interaction):

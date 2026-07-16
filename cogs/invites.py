@@ -39,7 +39,6 @@ class Invites(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        # {guild_id: {code: (uses, inviter_id)}}
         self._cache: dict[int, dict[str, tuple[int, int | None]]] = {}
 
     async def _refresh_cache(self, guild: discord.Guild):
@@ -99,7 +98,6 @@ class Invites(commands.Cog):
         g.setdefault("inviter_of", {})[str(member.id)] = str(used_inviter)
         _save(data)
 
-    # ── Command ──────────────────────────────────────────────────────────────────
 
     @app_commands.command(name="invites", description="See how many members someone has invited")
     @app_commands.describe(member="Member to check (defaults to you)")

@@ -8,8 +8,6 @@ from discord.ext import commands, tasks
 import storage
 COUNT_FILE = storage.path("membercount.json")
 NAME_FORMAT = "Members: {count}"
-# Discord only allows ~2 channel renames per 10 minutes, so between the
-# instant updates we leave a safety gap and let the loop catch up.
 MIN_SECONDS_BETWEEN_RENAMES = 330
 
 
@@ -31,7 +29,6 @@ class MemberCount(commands.Cog):
     async def cog_unload(self):
         self.refresh_counters.cancel()
 
-    # ── Updating ─────────────────────────────────────────────────────────────────
 
     async def _update_guild(self, guild: discord.Guild, force: bool = False):
         data = _load()
@@ -46,7 +43,7 @@ class MemberCount(commands.Cog):
             return
         now = time.time()
         if not force and now - self._last_rename.get(guild.id, 0) < MIN_SECONDS_BETWEEN_RENAMES:
-            return  # too soon — the 10-minute loop will catch it
+            return
         try:
             await channel.edit(name=new_name, reason="Member count update")
             self._last_rename[guild.id] = now

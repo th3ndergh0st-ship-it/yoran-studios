@@ -20,8 +20,6 @@ def _set_thumbnail(embed: discord.Embed, url: str | None):
         embed.set_thumbnail(url=url)
 
 
-# ── Modals ────────────────────────────────────────────────────────────────────
-
 class AnnounceModal(discord.ui.Modal, title="📢 Make an Announcement"):
     ann_title = discord.ui.TextInput(label="Title", max_length=100)
     content   = discord.ui.TextInput(label="Message", style=discord.TextStyle.paragraph, max_length=2000)
@@ -87,8 +85,6 @@ class EmbedModal(discord.ui.Modal, title="📝 Custom Embed"):
             ephemeral=True,
         )
 
-
-# ── Cog ───────────────────────────────────────────────────────────────────────
 
 class Announcements(commands.Cog):
     def __init__(self, bot: commands.Bot):

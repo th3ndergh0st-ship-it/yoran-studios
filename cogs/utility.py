@@ -6,8 +6,6 @@ from config import PRIMARY, SUCCESS, ERROR, WARNING, INFO
 from utils import is_helper, is_support
 
 
-# ── Modals ────────────────────────────────────────────────────────────────────
-
 class SuggestModal(discord.ui.Modal, title="💡 Submit a Suggestion"):
     sug_title   = discord.ui.TextInput(label="Title", placeholder="Brief title for your suggestion", max_length=100)
     description = discord.ui.TextInput(
@@ -118,8 +116,6 @@ class PollModal(discord.ui.Modal, title="📊 Create a Poll"):
             await msg.add_reaction(emojis[i])
 
 
-# ── Cog ───────────────────────────────────────────────────────────────────────
-
 class Utility(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -136,8 +132,6 @@ class Utility(commands.Cog):
                 ephemeral=True,
             )
 
-
-    # ── Top-level utility ────────────────────────────────────────────────────────
 
     @app_commands.command(name="kingofyapping", description="Reveals the server's undisputed King of Yapping 👑")
     async def kingofyapping(self, interaction: discord.Interaction):
@@ -208,7 +202,6 @@ class Utility(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
 
-    # ── /info group ──────────────────────────────────────────────────────────────
 
     @app_commands.command(name="userinfo", description="View info about a member")
     @app_commands.default_permissions(manage_messages=True)
@@ -300,7 +293,6 @@ class Utility(commands.Cog):
         embed.set_footer(text=f"Created {discord.utils.format_dt(role.created_at, 'R')}")
         await interaction.response.send_message(embed=embed)
 
-    # ── /community group ─────────────────────────────────────────────────────────
 
     @app_commands.command(name="suggest", description="Submit a suggestion for the server")
     async def community_suggest(self, interaction: discord.Interaction):
@@ -323,7 +315,6 @@ class Utility(commands.Cog):
     async def community_poll(self, interaction: discord.Interaction, channel: discord.TextChannel):
         await interaction.response.send_modal(PollModal(channel))
 
-    # ── Help ─────────────────────────────────────────────────────────────────────
 
     @app_commands.command(name="help", description="View all available commands")
     async def help(self, interaction: discord.Interaction):

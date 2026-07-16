@@ -14,17 +14,14 @@ import storage
 LEVELS_FILE = storage.path("levels.json")
 
 XP_PER_MESSAGE = (15, 25)
-XP_COOLDOWN = 60  # seconds between XP gains per member (anti-spam)
+XP_COOLDOWN = 60
 
-# Milestone roles that already exist in the server. When a member reaches
-# one of these levels they get the role (and lose the previous milestone).
 LEVEL_ROLES = {
     5: "Level 5", 10: "Level 10", 20: "Level 20", 30: "Level 30",
     40: "Level 40", 50: "Level 50", 60: "Level 60", 70: "Level 70",
     80: "Level 80",
 }
 
-# Channels that never grant XP (counting spam, bot commands).
 NO_XP_CHANNEL_IDS = {1524143534998032656}
 
 
@@ -70,13 +67,9 @@ class Levels(commands.Cog):
         self.bot = bot
         self._backfill_started = False
 
-    # ── One-time history backfill ────────────────────────────────────────────────
 
     @commands.Cog.listener()
     async def on_ready(self):
-        # Seed message counts from channel history once, so the message
-        # leaderboard doesn't start from zero. The marker lives in the data
-        # file (on the persistent volume), so this never runs twice.
         if self._backfill_started:
             return
         self._backfill_started = True
@@ -108,8 +101,6 @@ class Levels(commands.Cog):
         guild_data = data.setdefault(str(guild.id), {})
         for uid, scanned in counts.items():
             user = guild_data.setdefault(uid, {"xp": 0, "level": 0, "last_xp": 0, "messages": 0})
-            # history is the source of truth; keep whichever is higher in case
-            # the live counter already ticked during the scan
             user["messages"] = max(user.get("messages", 0), scanned)
         data.setdefault(BACKFILL_KEY, []).append(str(guild.id))
         _save(data)
@@ -119,7 +110,6 @@ class Levels(commands.Cog):
             flush=True,
         )
 
-    # ── XP gain ──────────────────────────────────────────────────────────────────
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -132,7 +122,6 @@ class Levels(commands.Cog):
         guild_data = data.setdefault(str(message.guild.id), {})
         user = guild_data.setdefault(str(message.author.id), {"xp": 0, "level": 0, "last_xp": 0, "messages": 0})
 
-        # every message counts toward the message leaderboards...
         user["messages"] = user.get("messages", 0) + 1
         day, week = current_day_key(), current_week_key()
         if user.get("day_key") != day:
@@ -147,7 +136,6 @@ class Levels(commands.Cog):
             _save(data)
             return
 
-        # ...but XP stays cooldown-gated so spam doesn't level you up
         user["xp"] += random.randint(*XP_PER_MESSAGE)
         user["last_xp"] = now
 
@@ -158,9 +146,6 @@ class Levels(commands.Cog):
             leveled_up = True
 
         level = user["level"]
-        # Guard against duplicate announcements (e.g. two bot processes
-        # overlapping during a redeploy): only announce levels we haven't
-        # announced before, and persist that marker with the XP data.
         already_announced = user.get("announced", 0)
         should_announce = leveled_up and level > already_announced
         if should_announce:
@@ -205,7 +190,6 @@ class Levels(commands.Cog):
         if target and target not in member.roles:
             await member.add_roles(target, reason=f"Reached level {level}")
 
-    # ── Commands ─────────────────────────────────────────────────────────────────
 
     @app_commands.command(name="rank", description="View your (or someone else's) level and XP")
     @app_commands.describe(member="Member to check")
@@ -219,7 +203,6 @@ class Levels(commands.Cog):
         filled = int((xp / needed) * 12) if needed else 0
         bar = "█" * filled + "░" * (12 - filled)
 
-        # position in server ranking
         ranked = sorted(data.items(), key=lambda kv: (kv[1].get("level", 0), kv[1].get("xp", 0)), reverse=True)
         position = next((i + 1 for i, (uid, _) in enumerate(ranked) if uid == str(target.id)), len(ranked) + 1)
 

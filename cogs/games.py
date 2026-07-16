@@ -46,8 +46,6 @@ def _status_meta(status: str):
     return STATUS_META.get(status, ("🎮", PRIMARY))
 
 
-# ── Owner-only management panel ────────────────────────────────────────────────
-
 class AddGameModal(discord.ui.Modal, title="➕ Add New Game"):
     name = discord.ui.TextInput(label="Name", max_length=100)
     status = discord.ui.TextInput(
@@ -244,8 +242,6 @@ class GamePanelView(discord.ui.View):
         view.add_item(GameAnnounceSelect(games))
         await interaction.response.send_message(embed=discord.Embed(description="Select a game to announce news for.", color=PRIMARY), view=view, ephemeral=True)
 
-
-# ── Cog ───────────────────────────────────────────────────────────────────────
 
 class Games(commands.Cog):
     def __init__(self, bot: commands.Bot):

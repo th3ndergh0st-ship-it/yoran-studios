@@ -1,10 +1,6 @@
 import os
 import shutil
 
-# Where runtime JSON data lives. On Railway the container filesystem is
-# ephemeral, so mounting a Volume at /data and setting DATA_DIR=/data makes
-# economy balances, levels, warnings, giveaways, etc. survive redeploys.
-# Without the env var everything keeps working from the repo's data/ folder.
 DATA_DIR = os.getenv("DATA_DIR", "data")
 BASELINE_DIR = "data"
 
