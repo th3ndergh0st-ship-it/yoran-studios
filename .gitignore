@@ -11,3 +11,4 @@ data/*
 !data/welcome.json
 !data/counting.json
 !data/verifysub.json
+!data/vip.json

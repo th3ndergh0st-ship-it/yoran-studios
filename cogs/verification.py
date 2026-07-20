@@ -48,7 +48,7 @@ class VerificationView(discord.ui.View):
 
         data = _load_vip()
         granted = data.setdefault("granted", [])
-        if str(member.id) not in granted and len(granted) < VIP_LIMIT:
+        if not data.get("vip_closed") and str(member.id) not in granted and len(granted) < VIP_LIMIT:
             vip = guild.get_role(VIP_ROLE_ID)
             if vip:
                 try:
@@ -145,8 +145,15 @@ class Verification(commands.Cog):
         if self._backfill_started:
             return
         self._backfill_started = True
+
+        vip_data = _load_vip()
+        if not vip_data.get("vip_closed"):
+            vip_data["vip_closed"] = True
+            _save_vip(vip_data)
+            print(f"[Verification] VIP closed at {len(vip_data.get('granted', []))} holders", flush=True)
+
         guild = self.bot.get_guild(STUDIOS_GUILD_ID)
-        if guild is None or _load_vip().get("og_sync_v3"):
+        if guild is None or vip_data.get("og_sync_v3"):
             return
         self.bot.loop.create_task(self._backfill_existing(guild))
 
@@ -190,7 +197,7 @@ class Verification(commands.Cog):
                         await asyncio.sleep(0.3)
                 except discord.HTTPException:
                     pass
-            if vip and str(member.id) not in granted and len(granted) < VIP_LIMIT:
+            if vip and not data.get("vip_closed") and str(member.id) not in granted and len(granted) < VIP_LIMIT:
                 try:
                     await member.add_roles(vip, reason=f"VIP backfill — early member #{len(granted) + 1}")
                     granted.append(str(member.id))
