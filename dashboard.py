@@ -24,6 +24,9 @@ STUDIOS_GUILD_ID = 1523445628204482620
 DEV_ROLE_ID = 1523445699377627186
 ALWAYS_ALLOWED_USER_IDS = {1230234714229444623}
 
+MAX_IMAGE_BYTES = 8_000_000
+MAX_UPLOAD = 12 * 1024 * 1024
+
 SESSION_TTL = 7 * 86400
 COOKIE_NAME = "yoran_session"
 
@@ -74,6 +77,26 @@ def _is_authorized(bot: discord.Client, user_id: int) -> bool:
 
 def _session(request: web.Request) -> dict | None:
     return _unsign(request.cookies.get(COOKIE_NAME, ""))
+
+
+@web.middleware
+async def error_middleware(request: web.Request, handler):
+    try:
+        return await handler(request)
+    except web.HTTPRequestEntityTooLarge:
+        return web.json_response(
+            {"error": f"That file is too large. Keep images under {MAX_IMAGE_BYTES // 1_000_000} MB."},
+            status=413,
+        )
+    except web.HTTPException:
+        raise
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Malformed request."}, status=400)
+    except Exception as e:
+        print(f"[Dashboard] Unhandled error on {request.method} {request.path}: {e!r}", flush=True)
+        if request.path.startswith("/api/"):
+            return web.json_response({"error": f"Server error: {type(e).__name__}"}, status=500)
+        raise
 
 
 @web.middleware
@@ -256,7 +279,7 @@ def _decode_image(data_uri: str) -> bytes | None:
         raw = base64.b64decode(data_uri.split(",", 1)[1])
     except (ValueError, TypeError):
         return None
-    return raw if 0 < len(raw) <= 8_000_000 else None
+    return raw if 0 < len(raw) <= MAX_IMAGE_BYTES else None
 
 
 async def apply_presence(bot: discord.Client):
@@ -315,10 +338,16 @@ async def api_bot_post(request: web.Request):
     if changes:
         try:
             await bot.user.edit(**changes)
+        except ValueError:
+            return web.json_response(
+                {"error": "Unsupported image format. Use PNG, JPG or GIF."}, status=400
+            )
         except discord.HTTPException as e:
             msg = str(e)
-            if "rate" in msg.lower() or e.status == 429:
-                msg = "Discord rate limit — bot usernames can only change twice per hour."
+            if e.status == 429 or "rate" in msg.lower():
+                msg = "Discord rate limit — bot usernames can only change twice per hour. Try again later."
+            elif e.status == 400 and "avatar" in msg.lower():
+                msg = "Discord rejected that image. Try a smaller PNG or JPG."
             return web.json_response({"error": msg}, status=400)
         _log(request, f"changed bot {', '.join(changes)}")
 
@@ -363,8 +392,15 @@ async def api_guild_post(request: web.Request):
     if changes:
         try:
             await guild.edit(reason=f"Dashboard edit by {request['user_name']}", **changes)
+        except ValueError:
+            return web.json_response(
+                {"error": "Unsupported image format. Use PNG, JPG or GIF."}, status=400
+            )
         except discord.HTTPException as e:
-            return web.json_response({"error": str(e)}, status=400)
+            msg = str(e)
+            if e.status == 403:
+                msg = "I don't have permission to edit this server."
+            return web.json_response({"error": msg}, status=400)
         _log(request, f"changed server {', '.join(changes)}")
     return await api_guild_get(request)
 
@@ -969,17 +1005,29 @@ const esc=(s)=>String(s??"").replace(/[<>&"]/g,c=>({{"<":"&lt;",">":"&gt;","&":"
 let dirty=false, CHANNELS=[], ROLES=[], newAvatar=null, newIcon=null;
 
 function toast(msg,err){{const t=$("#toast");t.textContent=msg;t.className="toast show"+(err?" err":"");setTimeout(()=>t.className="toast",2600);}}
-async function jget(u){{const r=await fetch(u);if(!r.ok)throw new Error((await r.json()).error||r.status);return r.json();}}
+async function readErr(r){{
+  const txt=await r.text().catch(()=>"");
+  try{{const j=JSON.parse(txt); if(j.error) return j.error;}}catch(e){{}}
+  if(r.status===401) return "Session expired — reload and sign in again.";
+  if(r.status===403) return "You don't have permission for that.";
+  if(r.status===413) return "That file is too large.";
+  return `Error ${{r.status}}${{txt?": "+txt.slice(0,120):""}}`;
+}}
+async function jget(u){{const r=await fetch(u);if(!r.ok)throw new Error(await readErr(r));return r.json();}}
 async function jpost(u,b,m){{
   const r=await fetch(u,{{method:m||"POST",headers:{{"Content-Type":"application/json"}},body:b?JSON.stringify(b):null}});
-  const d=await r.json().catch(()=>({{}}));
-  if(!r.ok) throw new Error(d.error||"Request failed");
-  return d;
+  if(!r.ok) throw new Error(await readErr(r));
+  return r.json().catch(()=>({{}}));
 }}
+function busy(btn,on,label){{btn.disabled=on;btn.textContent=on?"Saving...":label;}}
 function fileToData(input,cb){{
   const f=input.files[0]; if(!f) return;
-  if(f.size>8000000) return toast("Image is larger than 8 MB",1);
-  const rd=new FileReader(); rd.onload=()=>cb(rd.result); rd.readAsDataURL(f);
+  if(f.type.indexOf("image/")!==0) return toast("Use a PNG, JPG or GIF image",1);
+  if(f.size>7500000) return toast(`That image is ${{(f.size/1048576).toFixed(1)}} MB — keep it under 7 MB`,1);
+  const rd=new FileReader();
+  rd.onerror=()=>toast("Could not read that file",1);
+  rd.onload=()=>cb(rd.result);
+  rd.readAsDataURL(f);
 }}
 function opts(list,sel,none){{
   return (none?`<option value="">— none —</option>`:"")+
@@ -1022,7 +1070,7 @@ function renderBoard(id,rows){{
   ).join(""):`<tr><td style="color:#6b6b8a">No data yet</td></tr>`;
 }}
 function renderBot(b){{
-  $("#botAvatar").src=b.avatar; $("#botName").value=b.username;
+  $("#botAvatar").src=b.avatar+(b.avatar.includes("?")?"&":"?")+"t="+Date.now(); $("#botName").value=b.username;
   $("#pStatus").innerHTML=opts(b.status_options.map(o=>({{id:o,name:o}})),b.presence.status);
   $("#pType").innerHTML=opts(b.type_options.map(o=>({{id:o,name:o}})),b.presence.activity_type);
   $("#pName").value=b.presence.activity_name;
@@ -1093,20 +1141,24 @@ $("#saveBtn").onclick=async()=>{{
 }};
 $("#botFile").onchange=()=>fileToData($("#botFile"),d=>{{newAvatar=d;$("#botAvatar").src=d;toast("Avatar ready — press Save identity");}});
 $("#gFile").onchange=()=>fileToData($("#gFile"),d=>{{newIcon=d;$("#gIcon").src=d;toast("Icon ready — press Save server");}});
-$("#saveBot").onclick=async()=>{{
+$("#saveBot").onclick=async(e)=>{{
+  const b=e.target; busy(b,true);
   try{{renderBot(await jpost("/api/bot",{{username:$("#botName").value,avatar:newAvatar||""}}));
     newAvatar=null;toast("Bot identity updated");}}
-  catch(e){{toast(e.message,1);}}
+  catch(err){{toast(err.message,1);}}
+  finally{{busy(b,false,"Save identity");}}
 }};
 $("#savePresence").onclick=async()=>{{
   try{{renderBot(await jpost("/api/bot",{{presence:{{status:$("#pStatus").value,activity_type:$("#pType").value,activity_name:$("#pName").value}}}}));
     toast("Presence updated");}}
   catch(e){{toast(e.message,1);}}
 }};
-$("#saveGuild").onclick=async()=>{{
+$("#saveGuild").onclick=async(e)=>{{
+  const b=e.target; busy(b,true);
   try{{const g=await jpost("/api/guild",{{name:$("#gName").value,icon:newIcon||""}});
-    $("#gIcon").src=g.icon;$("#gName").value=g.name;newIcon=null;toast("Server updated");}}
-  catch(e){{toast(e.message,1);}}
+    $("#gIcon").src=g.icon?g.icon+"?t="+Date.now():"";$("#gName").value=g.name;newIcon=null;toast("Server updated");}}
+  catch(err){{toast(err.message,1);}}
+  finally{{busy(b,false,"Save server");}}
 }};
 $("#addGame").onclick=async()=>{{
   try{{renderGames(await jpost("/api/games",{{name:$("#ngName").value,status:$("#ngStatus").value,
@@ -1160,7 +1212,7 @@ window.addEventListener("beforeunload",e=>{{if(dirty){{e.preventDefault();e.retu
 
 
 async def start_dashboard(bot: discord.Client, port: int):
-    app = web.Application(middlewares=[auth_middleware])
+    app = web.Application(middlewares=[error_middleware, auth_middleware], client_max_size=MAX_UPLOAD)
     app["bot"] = bot
     app.add_routes([
         web.get("/", handle_index),
