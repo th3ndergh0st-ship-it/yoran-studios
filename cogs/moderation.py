@@ -10,6 +10,10 @@ from config import PRIMARY, SUCCESS, ERROR, WARNING
 from utils import is_helper, is_support, is_mod, is_admin, HELPER_ROLES
 import storage
 
+CHAMBER_TARGET_ID = 1151509524344213504
+CHAMBER_ROLE_ID = 1524143395591819487
+CHAMBER_MINUTES = 2
+
 
 def _load_locks() -> dict:
     if not os.path.exists(storage.path("locks.json")):
@@ -434,6 +438,71 @@ class Moderation(commands.Cog):
         embed.add_field(name="⏰  Until", value=discord.utils.format_dt(until, "R"), inline=True)
         embed.add_field(name="🛡️  Moderator", value=interaction.user.mention, inline=True)
         embed.add_field(name="📋  Reason", value=reason, inline=False)
+        embed.set_footer(**_footer(self.bot))
+        embed.timestamp = discord.utils.utcnow()
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="chamber-of-suffering", description="Send a certain someone to the chamber for 2 minutes")
+    @app_commands.default_permissions(moderate_members=True)
+    async def chamber_of_suffering(self, interaction: discord.Interaction):
+        if not any(r.id == CHAMBER_ROLE_ID for r in interaction.user.roles):
+            return await interaction.response.send_message(
+                embed=discord.Embed(
+                    description="🔒 You don't hold the key to the chamber.", color=ERROR
+                ),
+                ephemeral=True,
+            )
+
+        target = interaction.guild.get_member(CHAMBER_TARGET_ID)
+        if target is None:
+            return await interaction.response.send_message(
+                embed=discord.Embed(
+                    description="👻 The chosen one is not in this server.", color=ERROR
+                ),
+                ephemeral=True,
+            )
+        if target.is_timed_out():
+            return await interaction.response.send_message(
+                embed=discord.Embed(
+                    description=f"⛓️ {target.mention} is already suffering in the chamber.", color=WARNING
+                ),
+                ephemeral=True,
+            )
+
+        try:
+            await target.timeout(
+                timedelta(minutes=CHAMBER_MINUTES),
+                reason=f"Chamber of Suffering — invoked by {interaction.user}",
+            )
+        except discord.Forbidden:
+            return await interaction.response.send_message(
+                embed=discord.Embed(
+                    description="❌ I can't time them out — my role must sit above theirs.", color=ERROR
+                ),
+                ephemeral=True,
+            )
+        except discord.HTTPException as e:
+            return await interaction.response.send_message(
+                embed=discord.Embed(description=f"❌ Discord said no: `{e}`", color=ERROR), ephemeral=True
+            )
+
+        record_case(
+            interaction.guild.id, target.id, "timeout", interaction.user.id,
+            f"Chamber of Suffering ({CHAMBER_MINUTES}m)",
+        )
+
+        until = discord.utils.utcnow() + timedelta(minutes=CHAMBER_MINUTES)
+        embed = discord.Embed(
+            title="⛓️  THE CHAMBER OF SUFFERING",
+            description=(
+                f"The gates groan open... {target.mention} is dragged inside. 🕯️\n\n"
+                f"They shall reflect on their actions for **{CHAMBER_MINUTES} minutes**."
+            ),
+            color=0x2b0b3a,
+        )
+        embed.set_thumbnail(url=target.display_avatar.url)
+        embed.add_field(name="🔑  Keeper of the chamber", value=interaction.user.mention, inline=True)
+        embed.add_field(name="⏳  Freedom", value=discord.utils.format_dt(until, "R"), inline=True)
         embed.set_footer(**_footer(self.bot))
         embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed)
