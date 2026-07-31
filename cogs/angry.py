@@ -32,8 +32,6 @@ class Angry(commands.Cog):
             return
         if message.channel.id != ANGRY_CHANNEL_ID:
             return
-        if message.author.guild_permissions.administrator:
-            return
         if message.attachments or message.stickers or not _is_only_angry(message.content):
             try:
                 await message.delete()
