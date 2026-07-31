@@ -1,19 +1,25 @@
+import re
+
 import discord
 from discord.ext import commands
 
 ANGRY_CHANNEL_ID = 1532796151131148339
 ANGRY_EMOJI_ID = 1525140908066996314
-ANGRY_EMOJI = "<:Angry:1525140908066996314>"
+
+_EMOJI_RE = re.compile(r"<a?:\w+:(\d+)>")
 
 
 def _is_only_angry(content: str) -> bool:
     stripped = content.strip()
     if not stripped:
         return False
-    token = f"<:Angry:{ANGRY_EMOJI_ID}>"
-    animated_token = f"<a:Angry:{ANGRY_EMOJI_ID}>"
-    remaining = stripped.replace(token, "").replace(animated_token, "").strip()
-    return remaining == "" and (token in stripped or animated_token in stripped)
+    matches = _EMOJI_RE.findall(stripped)
+    if not matches:
+        return False
+    if any(m != str(ANGRY_EMOJI_ID) for m in matches):
+        return False
+    leftover = _EMOJI_RE.sub("", stripped).strip()
+    return leftover == ""
 
 
 class Angry(commands.Cog):
@@ -28,7 +34,7 @@ class Angry(commands.Cog):
             return
         if message.author.guild_permissions.administrator:
             return
-        if not _is_only_angry(message.content) or message.attachments:
+        if message.attachments or message.stickers or not _is_only_angry(message.content):
             try:
                 await message.delete()
             except discord.HTTPException:
