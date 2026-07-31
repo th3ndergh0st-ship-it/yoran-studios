@@ -76,6 +76,18 @@ class GiveawayEnterView(discord.ui.View):
         user_id = str(interaction.user.id)
         entries = gw.setdefault("entries", [])
 
+        required_role_id = gw.get("required_role_id")
+        if required_role_id and user_id not in entries:
+            role = interaction.guild.get_role(required_role_id)
+            if role is None or role not in interaction.user.roles:
+                return await interaction.response.send_message(
+                    embed=discord.Embed(
+                        description=f"🔒 This giveaway is only for {role.mention if role else 'a specific role'} members.",
+                        color=ERROR,
+                    ),
+                    ephemeral=True,
+                )
+
         if user_id in entries:
             entries.remove(user_id)
             reply_text  = "❌ You have **left** the giveaway."
@@ -190,6 +202,7 @@ class Giveaway(commands.Cog):
         prize    = "What are you giving away?",
         duration = "Duration: e.g. 1h, 30m, 2d, 1h30m",
         winners  = "Number of winners (default: 1)",
+        required_role = "Optional: only members with this role can enter",
     )
     @is_mod()
     async def giveaway_start(
@@ -199,6 +212,7 @@ class Giveaway(commands.Cog):
         prize: str,
         duration: str,
         winners: app_commands.Range[int, 1, 20] = 1,
+        required_role: discord.Role = None,
     ):
         seconds = _parse_duration(duration)
         if not seconds:
@@ -214,6 +228,8 @@ class Giveaway(commands.Cog):
         ends_dt = datetime.fromtimestamp(ends_at, tz=timezone.utc)
 
         embed = _active_embed(prize, interaction.user.id, ends_dt, winners, 0)
+        if required_role:
+            embed.add_field(name="🔒  Requirement", value=f"Must have {required_role.mention}", inline=False)
         msg   = await channel.send(embed=embed, view=GiveawayEnterView())
 
         data = _load()
@@ -226,12 +242,14 @@ class Giveaway(commands.Cog):
             "host":         interaction.user.id,
             "entries":      [],
             "ended":        False,
+            "required_role_id": required_role.id if required_role else None,
         }
         _save(data)
 
+        note = f"\nRestricted to {required_role.mention}." if required_role else ""
         await interaction.response.send_message(
             embed=discord.Embed(
-                description=f"✅ Giveaway started in {channel.mention}!\nEnds {discord.utils.format_dt(ends_dt, 'R')}.",
+                description=f"✅ Giveaway started in {channel.mention}!\nEnds {discord.utils.format_dt(ends_dt, 'R')}.{note}",
                 color=SUCCESS,
             ),
             ephemeral=True,
