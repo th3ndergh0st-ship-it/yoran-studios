@@ -1,5 +1,8 @@
 .git
 .gitignore
 __pycache__
-data
 *.pyc
+_page_new.py
+_page_old.txt
+railway.toml
+Procfile
