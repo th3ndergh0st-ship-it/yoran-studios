@@ -12,3 +12,4 @@ data/*
 !data/counting.json
 !data/verifysub.json
 !data/vip.json
+!data/levels.json
