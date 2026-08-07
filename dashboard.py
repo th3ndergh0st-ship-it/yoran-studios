@@ -272,6 +272,44 @@ def _log(request: web.Request, action: str):
     print(f"[Dashboard] {request['user_name']} ({request['user_id']}) {action}", flush=True)
 
 
+async def api_export(request: web.Request):
+    import glob
+    bundle = {}
+    for fp in glob.glob(os.path.join(storage.DATA_DIR, "*.json")):
+        try:
+            with open(fp, encoding="utf-8") as f:
+                bundle[os.path.basename(fp)] = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+    _log(request, f"exported {len(bundle)} data files")
+    return web.json_response(
+        {"version": 1, "files": bundle},
+        headers={"Content-Disposition": 'attachment; filename="yoran-data-backup.json"'},
+    )
+
+
+async def api_import(request: web.Request):
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid backup file."}, status=400)
+    files = body.get("files")
+    if not isinstance(files, dict):
+        return web.json_response({"error": "This doesn't look like a Yoran data backup."}, status=400)
+
+    os.makedirs(storage.DATA_DIR, exist_ok=True)
+    written = []
+    for name, content in files.items():
+        if not name.endswith(".json") or "/" in name or "\\" in name:
+            continue
+        with open(os.path.join(storage.DATA_DIR, name), "w", encoding="utf-8") as f:
+            json.dump(content, f, indent=2)
+        written.append(name)
+    settings.load()
+    _log(request, f"imported {len(written)} data files")
+    return web.json_response({"ok": True, "restored": written})
+
+
 def _decode_image(data_uri: str) -> bytes | None:
     if not data_uri or "," not in data_uri:
         return None
@@ -832,9 +870,25 @@ textarea { resize:vertical; min-height:90px; }
   <button data-tab="announce">📢 Announce</button>
   <button data-tab="channels">⚙️ Channels</button>
   <button data-tab="boards">🏆 Boards</button>
+  <button data-tab="backup">💾 Backup</button>
 </nav>
 
 <section id="overview"><div class="grid" id="stats"></div></section>
+
+<section id="backup" class="hide">
+  <div class="cols">
+    <div class="card"><h2>⬇️ Export</h2>
+      <p style="color:#b9b9cc;font-size:14px">Download every data file (economy, levels, invites, warnings, settings…) as a single backup you can restore anywhere.</p>
+      <button class="mini" id="doExport" style="margin-top:10px">Download backup</button>
+    </div>
+    <div class="card"><h2>⬆️ Restore</h2>
+      <p style="color:#b9b9cc;font-size:14px">Upload a backup file to overwrite the current data. Use this once, right after moving hosts.</p>
+      <input type="file" id="importFile" accept="application/json,.json" class="hide">
+      <button class="mini" onclick="importFile.click()" style="margin-top:10px">Choose backup file…</button>
+      <div class="note" id="importInfo"></div>
+    </div>
+  </div>
+</section>
 
 <section id="bot" class="hide">
   <div class="cols">
@@ -1184,6 +1238,33 @@ $("#saveChannels").onclick=async()=>{{
   try{{renderConfig(await jpost("/api/config",out));toast("Channels saved");}}
   catch(e){{toast(e.message,1);}}
 }};
+$("#doExport").onclick=async()=>{{
+  try{{
+    const r=await fetch("/api/export");
+    if(!r.ok) throw new Error(await readErr(r));
+    const blob=await r.blob();
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="yoran-data-backup.json";
+    a.click();
+    toast("Backup downloaded");
+  }}catch(e){{toast(e.message,1);}}
+}};
+$("#importFile").onchange=()=>{{
+  const f=$("#importFile").files[0]; if(!f) return;
+  if(!confirm("Restore this backup? It overwrites the bot's current data.")) return;
+  const rd=new FileReader();
+  rd.onload=async()=>{{
+    try{{
+      const payload=JSON.parse(rd.result);
+      const d=await jpost("/api/import",payload);
+      $("#importInfo").textContent="Restored: "+(d.restored||[]).join(", ");
+      toast("Backup restored — reloading");
+      setTimeout(()=>location.reload(),1500);
+    }}catch(e){{toast("Restore failed: "+e.message,1);}}
+  }};
+  rd.readAsText(f);
+}};
 let searchTimer;
 $("#mSearch").oninput=()=>{{clearTimeout(searchTimer);searchTimer=setTimeout(loadMembers,300);}};
 window.addEventListener("beforeunload",e=>{{if(dirty){{e.preventDefault();e.returnValue="";}}}});
@@ -1241,6 +1322,8 @@ async def start_dashboard(bot: discord.Client, port: int):
         web.post("/api/announce", api_announce),
         web.get("/api/config", api_config_get),
         web.post("/api/config", api_config_post),
+        web.get("/api/export", api_export),
+        web.post("/api/import", api_import),
     ])
     runner = web.AppRunner(app)
     await runner.setup()
